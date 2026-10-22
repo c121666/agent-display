@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>草图 · 飞轮标签换词 v0（模拟）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+/* 配色沿用 index.html · tpl-ops 纸面工程变量 */
+:root{
+  --bg:#eeede8; --panel:#f6f5f1; --ink:#151515; --ink2:#4a4a46; --mute:#86857f;
+  --hair:#d2d0c9; --hair2:#e4e2dc;
+  --font:"JetBrains Mono","Noto Sans SC",ui-monospace,Menlo,monospace;
+  --cjk:"Noto Sans SC","JetBrains Mono",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:12px;
+  -webkit-font-smoothing:antialiased; padding:20px;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px),
+    repeating-linear-gradient(90deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px);
+}
+h1{font-family:var(--cjk); font-size:19px; margin:0 0 4px}
+h2{font-family:var(--cjk); font-size:14px; margin:22px 0 8px}
+.sub{color:var(--mute); margin-bottom:14px; line-height:1.8}
+.col{display:flex; gap:36px; flex-wrap:wrap; align-items:flex-start}
+.blk{display:grid; gap:8px}
+.cap{font-size:10px; letter-spacing:.12em; color:var(--mute)}
+.cap b{color:var(--ink); font-family:var(--cjk); letter-spacing:.04em}
+/* ── 节点标签（仿 canvas 绘制效果） ─────────────────── */
+.hub{width:288px; background:var(--panel); border:1px solid var(--hair); padding:16px 14px;
+  display:flex; flex-direction:column; gap:10px; align-items:flex-end}
+.hlab{text-align:right}
+.hlab .main{display:inline-block; background:var(--panel); border:1px solid var(--ink2); padding:2px 6px;
+  font-size:9px; font-weight:700; letter-spacing:.02em; white-space:nowrap}
+.hlab .main.fresh{background:var(--ink); color:var(--panel); border-color:var(--ink)}
+.hlab .sub{display:inline-block; background:var(--bg); padding:1px 5px; margin-top:3px;
+  font-size:7.5px; color:var(--mute); white-space:nowrap}
+.hlab .sub b{color:var(--ink2); font-weight:500}
+.zoom{width:576px; position:relative; overflow:hidden}
+.zoom .inner{transform:scale(2); transform-origin:top left; width:288px}
+/* ── 悬停浮层（仿 .tip） ───────────────────────────── */
+.tip{width:288px; background:var(--panel); border:1px solid var(--ink); padding:10px 12px;
+  font-family:var(--cjk); font-size:10.5px; line-height:1.6}
+.tip b{font-family:var(--font); margin-right:6px}
+.tip span{display:block; color:var(--mute); font-family:var(--font); font-size:9px; margin-top:2px}
+/* ── 顶部指标轨（仿 .top） ─────────────────────────── */
+.stats{display:grid; grid-template-columns:repeat(3,minmax(86px,auto)); gap:12px 26px; width:340px}
+.stat{padding-bottom:7px; border-bottom:1px solid var(--hair)}
+.stat .k{display:block; font-size:8px; letter-spacing:.16em; color:var(--mute); white-space:nowrap}
+.stat .k i{font-style:normal; font-family:var(--cjk); letter-spacing:.04em; margin-left:5px}
+.stat .v{display:block; margin-top:6px; font-size:15px; font-weight:500; font-variant-numeric:tabular-nums}
+.stat .v small{color:var(--mute); font-size:.78em}
+/* ── 任务流（仿 .feed） ────────────────────────────── */
+.feed{width:288px; background:var(--panel); border:1px solid var(--hair); padding:9px 11px;
+  font-size:9.5px; line-height:15px}
+.feed .li{display:grid; grid-template-columns:2.6em 3.2em minmax(0,1fr); gap:8px; white-space:nowrap}
+.feed .n{color:var(--mute)}
+.feed .vb{color:var(--ink2); font-family:var(--cjk)}
+.feed .d{overflow: hidden; text-overflow:ellipsis; font-family:var(--cjk)}
+.feed .li:last-child .d{font-weight:700}
+/* ── 飞轮位置示意 ─────────────────────────────────── */
+.wheel{width:520px; background:var(--panel); border:1px solid var(--hair)}
+/* ── 词表 chips ───────────────────────────────────── */
+.chips{display:flex; gap:6px; flex-wrap:wrap}
+.chip{border:1px solid var(--hair); padding:3px 9px; font-family:var(--cjk); font-size:11px; color:var(--ink2)}
+.chip b{font-family:var(--font); font-size:9px; color:var(--mute); margin-right:5px; letter-spacing:.06em}
+.chip.on{border-color:var(--ink); color:var(--ink)}
+/* ── 说明区 ───────────────────────────────────────── */
+.note{margin-top:18px; max-width:920px; color:var(--ink2); line-height:2; font-family:var(--cjk)}
+.note table{border-collapse:collapse; font-size:11px; margin:6px 0 14px}
+.note th,.note td{border:1px solid var(--hair); padding:4px 10px; text-align:left}
+.note th{color:var(--mute); font-weight:500; font-size:10px}
+.note h3{font-size:13px; margin:16px 0 2px}
+.note ul{margin:4px 0; padding-left:20px}
+</style>
+</head>
+<body>
+
+<h1>草图 · 飞轮标签换词 v0（「视频剪辑 / 视觉设计 / 需求拆解」→ 项目口径）</h1>
+<div class="sub">
+  范围：飞轮三个汇聚节点的标签与小字、悬停浮层，顺带两处同套遗留词汇（顶部指标、任务流任务名）· 全部为模拟 · 配色沿用纸面工程<br>
+  方向：<b>方案 A · 任务三类</b>（一次提交 = 一个任务），词表五项轮换：<b>新任务 / 修复 / 优化 / 测试 / 回归</b><br>
+  <b>定稿 2026-10-22</b>：节点标签保持 <code>W0x</code> 风格（W01 任务 / W02 修复 / W03 优化 / W04 测试 / W05 回归）；浮层按内容改写（③）；顶部指标（⑤）+ 任务流（⑥）采纳；其余不动。已落地 <code>index.html</code>，本页仅存档
+</div>
+
+<h2>① 节点标签（1:1 · 288px 宽画框内的右侧对齐效果）</h2>
+<div class="col">
+  <div class="blk">
+    <div class="cap"><b>现状</b> · 智能体工作流词表（遗留）</div>
+    <div class="hub">
+      <div class="hlab"><span class="main">W04 — 视觉设计</span><span class="sub">13 src · q 0.87 · match</span></div>
+      <div class="hlab"><span class="main fresh">W07 — 视频剪辑</span><span class="sub">21 src · q 0.92 · match</span></div>
+      <div class="hlab"><span class="main">W02 — 需求拆解</span><span class="sub">8 src · q 0.74 · review</span></div>
+    </div>
+    <div class="cap" style="line-height:1.8">主标 <code>W0x — 名称</code>，小字 = 来源数 / 质检值 / 匹配态</div>
+  </div>
+
+  <div class="blk">
+    <div class="cap"><b>方案① · git 风</b>（推荐）</div>
+    <div class="hub">
+      <div class="hlab"><span class="main">fix — 修复</span><span class="sub">汇入 13 · 测试 92% · <b>通过</b></span></div>
+      <div class="hlab"><span class="main fresh">feat — 新任务</span><span class="sub">汇入 21 · 测试 100% · <b>通过</b></span></div>
+      <div class="hlab"><span class="main">opt — 优化</span><span class="sub">汇入 8 · 测试 74% · <b>待复核</b></span></div>
+    </div>
+    <div class="cap" style="line-height:1.8">前缀 = git 提交类型（feat/fix/opt/test/reg），<br>与「任务 = 提交」口径一致</div>
+  </div>
+
+  <div class="blk">
+    <div class="cap"><b>方案② · 大写风</b></div>
+    <div class="hub">
+      <div class="hlab"><span class="main">FIX — 修复</span><span class="sub">汇入 13 · 测试 92% · <b>通过</b></span></div>
+      <div class="hlab"><span class="main fresh">NEW — 新任务</span><span class="sub">汇入 21 · 测试 100% · <b>通过</b></span></div>
+      <div class="hlab"><span class="main">OPT — 优化</span><span class="sub">汇入 8 · 测试 74% · <b>待复核</b></span></div>
+    </div>
+    <div class="cap" style="line-height:1.8">大写英文 + 中文（看板指标一贯风格）</div>
+  </div>
+</div>
+
+<h2>② 词表（每 2.4 秒在节点间轮换的就是这五项）</h2>
+<div class="chips">
+  <span class="chip on"><b>feat</b>新任务</span>
+  <span class="chip on"><b>fix</b>修复</span>
+  <span class="chip on"><b>opt</b>优化</span>
+  <span class="chip"><b>test</b>测试</span>
+  <span class="chip"><b>reg</b>回归</span>
+</div>
+<div class="cap" style="margin-top:6px">带框三项 = 节点默认显示；小字口径「质检 q」→「测试 %」，匹配态 match/review → 通过 / 待复核</div>
+
+<h2>③ 悬停浮层（悬停节点弹出的详情）</h2>
+<div class="col">
+  <div class="blk">
+    <div class="cap"><b>现状</b></div>
+    <div class="tip"><b>W07</b>视频剪辑<span>汇入 21 条来源 · 运行中 3 · 质检 0.92 match</span></div>
+  </div>
+  <div class="blk">
+    <div class="cap"><b>换词后</b></div>
+    <div class="tip"><b>feat</b>新任务<span>汇入 21 条提交 · 进行中 3 · 测试 100% 通过</span></div>
+  </div>
+</div>
+
+<h2>④ 飞轮位置示意（三个节点在轮上的样子，仅示意构图）</h2>
+<svg class="wheel" viewBox="0 0 520 260" role="img" aria-label="飞轮节点位置示意图">
+  <g fill="none" stroke="#d2d0c9">
+    <path d="M -120 330 A 320 320 0 0 1 320 -60" stroke-width="1.2"/>
+    <path d="M -40 350 A 380 380 0 0 1 380 -40" stroke-width="1"/>
+  </g>
+  <g stroke="#86857f" stroke-width="1.4">
+    <path d="M 232 62 h -22"/><path d="M 205 148 h -22"/><path d="M 152 216 h -22"/>
+  </g>
+  <g fill="none" stroke="#151515" stroke-width="1.2">
+    <circle cx="238" cy="62" r="9"/><circle cx="211" cy="148" r="9"/><circle cx="158" cy="216" r="9"/>
+  </g>
+  <g font-family='"Noto Sans SC",sans-serif' font-size="10" font-weight="700" fill="#151515" text-anchor="end">
+    <text x="204" y="66">feat — 新任务</text>
+    <text x="177" y="152">fix — 修复</text>
+    <text x="124" y="220">opt — 优化</text>
+  </g>
+  <g font-family='"JetBrains Mono",monospace' font-size="8" fill="#86857f" text-anchor="end">
+    <text x="204" y="78">汇入 21 · 测试 100% · 通过</text>
+    <text x="177" y="164">汇入 13 · 测试 92% · 通过</text>
+    <text x="124" y="232">汇入 8 · 测试 74% · 待复核</text>
+  </g>
+  <g font-family='"JetBrains Mono",monospace' font-size="8" fill="#86857f">
+    <text x="400" y="120">← 左：来源线汇入</text>
+    <text x="400" y="136">→ 右：输出谱线</text>
+    <text x="400" y="152">↻ 中：环带执行记录</text>
+  </g>
+</svg>
+
+<h2>⑤ 顶部指标轨（同套遗留词汇）</h2>
+<div class="col">
+  <div class="blk">
+    <div class="cap"><b>现状</b></div>
+    <div class="stats">
+      <div class="stat"><span class="k">TASKS<i>任务</i></span><span class="v">64</span></div>
+      <div class="stat"><span class="k">AGENTS<i>智能体</i></span><span class="v">10 <small>/ 12</small></span></div>
+      <div class="stat"><span class="k">WORKFLOWS<i>工作流</i></span><span class="v">11</span></div>
+      <div class="stat"><span class="k">OUTPUTS<i>产出</i></span><span class="v">22</span></div>
+      <div class="stat"><span class="k">MATCHED<i>已匹配</i></span><span class="v">8 <small>/ 11</small></span></div>
+      <div class="stat"><span class="k">PENDING<i>待复核</i></span><span class="v">3</span></div>
+    </div>
+  </div>
+  <div class="blk">
+    <div class="cap"><b>换词后</b>（模拟数据驱动逻辑不变，只换词）</div>
+    <div class="stats">
+      <div class="stat"><span class="k">TASKS<i>任务</i></span><span class="v">64</span></div>
+      <div class="stat"><span class="k">DOING<i>进行中</i></span><span class="v">10 <small>/ 64</small></span></div>
+      <div class="stat"><span class="k">TYPES<i>任务类</i></span><span class="v">5</span></div>
+      <div class="stat"><span class="k">OUTPUTS<i>产出</i></span><span class="v">22</span></div>
+      <div class="stat"><span class="k">TESTED<i>已测试</i></span><span class="v">8 <small>/ 11</small></span></div>
+      <div class="stat"><span class="k">PENDING<i>待复核</i></span><span class="v">3</span></div>
+    </div>
+    <div class="cap" style="line-height:1.8;margin-top:6px">AGENTS→DOING 进行中 · WORKFLOWS→TYPES 任务类 5 · MATCHED→TESTED 已测试</div>
+  </div>
+</div>
+
+<h2>⑥ 任务流 TASK FEED（任务名同套遗留）</h2>
+<div class="col">
+  <div class="blk">
+    <div class="cap"><b>现状</b>（内容工作室词表）</div>
+    <div class="feed">
+      <div class="li"><span class="n">038</span><span class="vb">读取</span><span class="d">竞品资料检索</span></div>
+      <div class="li"><span class="n">039</span><span class="vb">生成</span><span class="d">短视频脚本</span></div>
+      <div class="li"><span class="n">040</span><span class="vb">核验</span><span class="d">封面图六版</span></div>
+      <div class="li"><span class="n">041</span><span class="vb">复核</span><span class="d">落地页改版</span></div>
+    </div>
+  </div>
+  <div class="blk">
+    <div class="cap"><b>换词后</b>（开发任务名 + 类型动词）</div>
+    <div class="feed">
+      <div class="li"><span class="n">038</span><span class="vb">fix</span><span class="d">修复开发统计第 4 行裁剪</span></div>
+      <div class="li"><span class="n">039</span><span class="vb">feat</span><span class="d">飞轮秒标时间带</span></div>
+      <div class="li"><span class="n">040</span><span class="vb">test</span><span class="d">看板冒烟 + 三档回归</span></div>
+      <div class="li"><span class="n">041</span><span class="vb">opt</span><span class="d">四视图切换样式压紧</span></div>
+    </div>
+    <div class="cap" style="line-height:1.8;margin-top:6px">动词列改提交类型（feat/fix/opt/test），任务名换开发语境</div>
+  </div>
+</div>
+
+<div class="note">
+  <h3>改动范围（实施时）</h3>
+  <ul>
+    <li><code>CONFIG.workflows</code> 11 项 → 5 项（feat 新任务 / fix 修复 / opt 优化 / test 测试 / reg 回归）；节点默认 <code>hubWf</code> 取前三项</li>
+    <li>节点小字与悬停浮层：质检 q → 测试 %，match/review → 通过 / 待复核（纯文案，模拟数值驱动不变）</li>
+    <li>右下状态条：<code>WORKFLOW / REVIEW STATE</code> → <code>TASK / TEST STATE</code>（任务与测试状态）</li>
+    <li>可选同批：顶部指标 3 个词（⑤）、任务流任务名与动词（⑥）</li>
+  </ul>
+  <h3>待你拍板</h3>
+  <ul>
+    <li>标签前缀：<b>方案① git 风（feat/fix/opt）</b>还是方案② 大写风（NEW/FIX/OPT）？</li>
+    <li>顶部指标（⑤）和任务流（⑥）要不要这<b>一批一起换</b>？还是只换飞轮三节点？</li>
+    <li>词表五项的中英文叫法要不要调（比如「优化」叫「改进」，「回归」叫「回归测试」）？</li>
+  </ul>
+</div>
+
+</body>
+</html>

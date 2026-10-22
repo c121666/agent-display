@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>面板原型 · 任务 / token 监控 v0（模拟）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+/* 配色沿用 index.html · tpl-ops 纸面工程变量 */
+:root{
+  --bg:#eeede8; --panel:#f6f5f1; --ink:#151515; --ink2:#4a4a46; --mute:#86857f;
+  --hair:#d2d0c9; --hair2:#e4e2dc;
+  --font:"JetBrains Mono","Noto Sans SC",ui-monospace,Menlo,monospace;
+  --cjk:"Noto Sans SC","JetBrains Mono",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:12px;
+  -webkit-font-smoothing:antialiased; padding:20px;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px),
+    repeating-linear-gradient(90deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px);
+}
+h1{font-family:var(--cjk); font-size:19px; margin:0 0 4px}
+.sub{color:var(--mute); margin-bottom:16px; line-height:1.8}
+.wrap{display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start}
+.stage{display:grid; gap:10px}
+.cap{font-size:10px; letter-spacing:.12em; color:var(--mute)}
+/* ── 面板本体（1:1 = 看板里的实际比例） ─────────────── */
+.panel{
+  width:288px; height:184px; background:var(--panel); border:1px solid var(--hair);
+  padding:9px 11px 8px; display:flex; flex-direction:column; overflow:hidden;
+}
+.zoom{width:576px; height:368px; position:relative}
+.zoom .panel{transform:scale(2); transform-origin:top left}
+.ph{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px}
+.ph h2{margin:0; font-size:9px; font-weight:800; letter-spacing:.1em; white-space:nowrap}
+.ph h2 i{font-style:normal; font-family:var(--cjk); font-weight:500; color:var(--mute); letter-spacing:.06em; margin-left:6px}
+.ph span{font-size:8.5px; color:var(--mute); white-space:nowrap}
+/* 标签条 */
+.tabs{display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-bottom:7px}
+.tab{
+  font:700 8.5px/1 var(--font); letter-spacing:.08em; padding:5px 2px; cursor:pointer;
+  color:var(--ink2); background:transparent; border:1px solid var(--hair); border-radius:2px;
+  font-family:var(--cjk);
+}
+.tab b{font-family:var(--font); font-size:7.5px; color:var(--mute); margin-left:3px; font-weight:500}
+.tab.on{color:var(--chip-fg,var(--panel)); background:var(--ink); border-color:var(--ink)}
+.tab.on b{color:var(--panel); opacity:.75}
+.tprog{height:2px; background:var(--hair2); margin-bottom:7px; position:relative; overflow:hidden}
+.tprog i{position:absolute; inset:0 auto 0 0; background:var(--ink); width:0; animation:fill 10s linear}
+@keyframes fill{from{width:0} to{width:100%}}
+.pb{flex:1; min-height:0; position:relative; overflow:hidden}
+.view{position:absolute; inset:0; display:none; flex-direction:column; gap:6px}
+.view.on{display:flex}
+.pf{margin-top:6px; font-size:7.5px; letter-spacing:.08em; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* ── 标签一：任务 ─────────────────────────────────── */
+.task-name{font-family:var(--cjk); font-size:9.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.kv{display:flex; justify-content:space-between; font-size:8px; color:var(--mute)}
+.kv b{color:var(--ink); font-weight:500}
+.steps{display:flex; align-items:center; gap:0; margin-top:2px}
+.step{display:flex; align-items:center; gap:3px; font-family:var(--cjk); font-size:7.5px; color:var(--mute)}
+.step .dot{width:7px; height:7px; border-radius:50%; border:1.5px solid var(--mute); flex:none}
+.step.done{color:var(--ink2)} .step.done .dot{background:var(--ink); border-color:var(--ink)}
+.step.now{color:var(--ink); font-weight:700} .step.now .dot{border-color:var(--ink); box-shadow:0 0 0 2px rgba(21,21,21,.18)}
+.step .ln{width:14px; height:1px; background:var(--hair); margin:0 4px}
+/* ── 标签二：吞吐 ─────────────────────────────────── */
+.tps-big{font-size:20px; font-weight:800; line-height:1}
+.tps-big small{font-size:8px; color:var(--mute); font-weight:400; margin-left:4px}
+.bars{flex:1; display:flex; align-items:flex-end; gap:2px; min-height:0}
+.bars i{flex:1; background:var(--ink); min-height:2px}
+.bars i.low{background:var(--hair)}
+.tps-foot{display:flex; justify-content:space-between; font-size:7.5px; color:var(--mute)}
+/* ── 标签三：请求 ─────────────────────────────────── */
+.tiles{display:grid; grid-template-columns:repeat(2,1fr); gap:5px}
+.tile{border:1px solid var(--hair); padding:4px 7px}
+.tile .n{font-size:15px; font-weight:800; line-height:1.15}
+.tile .k{font-size:7.5px; color:var(--mute); font-family:var(--cjk)}
+.bar{height:5px; background:var(--hair2); position:relative}
+.bar i{position:absolute; inset:0 auto 0 0; background:var(--ink)}
+.bar i.dash{background:repeating-linear-gradient(90deg,var(--ink) 0 4px,transparent 4px 7px)}
+/* ── 标签四：用量 ─────────────────────────────────── */
+.use-block{border:1px solid var(--hair); padding:5px 7px}
+.use-block h4{margin:0 0 4px; font-family:var(--cjk); font-size:8px; color:var(--mute); font-weight:500; letter-spacing:.08em}
+.use-row{display:flex; justify-content:space-between; font-size:8px; color:var(--ink2); line-height:1.9}
+.use-row b{color:var(--ink); font-weight:700}
+.use-big{font-size:15px; font-weight:800}
+.note{margin-top:18px; max-width:900px; color:var(--ink2); line-height:2; font-family:var(--cjk)}
+.note table{border-collapse:collapse; font-size:11px; margin-top:6px}
+.note th,.note td{border:1px solid var(--hair); padding:4px 10px; text-align:left}
+.note th{color:var(--mute); font-weight:500; font-size:10px}
+</style>
+</head>
+<body>
+
+<h1>面板原型 · 任务 / token 监控 v0</h1>
+<div class="sub">
+  替换现有「ADVECT / PARTICLE SOLVER 粒子求解」面板 · 全部为模拟数据 · 配色沿用纸面工程<br>
+  交互：<b>点击标签切换</b>；<b>无操作每 10 秒自动轮换</b>（顶部细线是倒计时进度）；吞吐图每秒左移一格
+</div>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="cap">1:1 · 看板实际比例（288 × 184）</div>
+    <div id="p1"></div>
+    <div class="cap">放大约 2× · 看细节</div>
+    <div class="zoom" id="p2"></div>
+  </div>
+
+  <div class="note">
+    <b>内容 → 标签分组</b>（对照你列的 7 项）：
+    <table>
+      <tr><th>标签</th><th>内容</th></tr>
+      <tr><td>① 任务 TASK</td><td>当前任务执行进度（创建分支 → 规划 → 执行 → 测试）、当前执行任务的模型</td></tr>
+      <tr><td>② 吞吐 TPS</td><td>token 吞吐速度：大数字（token/s）+ 滚动条形柱状图（每秒左移）</td></tr>
+      <tr><td>③ 请求 REQ</td><td>请求统计（全部 / 成功 / 失败 / 重试成功）、缓存命中率</td></tr>
+      <tr><td>④ 用量 USE</td><td>当前聊天框 token 消耗、当天 token 消耗</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+/* ── 面板模板 ───────────────────────────────────────── */
+function panelHTML(){
+  return `
+  <div class="panel">
+    <div class="ph"><h2>TASK / TOKEN MONITOR<i>任务与 token</i></h2><span>auto 10s</span></div>
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-t="0">任务<b>TASK</b></button>
+      <button class="tab" data-t="1">吞吐<b>TPS</b></button>
+      <button class="tab" data-t="2">请求<b>REQ</b></button>
+      <button class="tab" data-t="3">用量<b>USE</b></button>
+    </div>
+    <div class="tprog"><i></i></div>
+    <div class="pb">
+      <!-- ① 任务 -->
+      <div class="view on" data-v="0">
+        <div class="task-name">feat/heat-pairing · 活动热力图行成对</div>
+        <div class="kv"><span>模型 MODEL</span><b>claude-sonnet-4-5</b></div>
+        <div class="steps">
+          <div class="step done"><span class="dot"></span>创建分支<span class="ln"></span></div>
+          <div class="step done"><span class="dot"></span>规划<span class="ln"></span></div>
+          <div class="step now"><span class="dot"></span>执行<span class="ln"></span></div>
+          <div class="step"><span class="dot"></span>测试</div>
+        </div>
+        <div class="kv"><span>当前步耗时</span><b>00:42</b></div>
+        <div class="kv"><span>总耗时</span><b>06:18</b></div>
+      </div>
+      <!-- ② 吞吐 -->
+      <div class="view" data-v="1">
+        <div class="tps-big"><span class="tps-num">128</span><small>token/s</small></div>
+        <div class="bars tps-bars"></div>
+        <div class="tps-foot"><span>峰值 210</span><span>均值 96</span><span>近 30 秒</span></div>
+      </div>
+      <!-- ③ 请求 -->
+      <div class="view" data-v="2">
+        <div class="tiles">
+          <div class="tile"><div class="n">128</div><div class="k">全部请求</div></div>
+          <div class="tile"><div class="n">121</div><div class="k">成功</div></div>
+          <div class="tile"><div class="n">4</div><div class="k">失败</div></div>
+          <div class="tile"><div class="n">3</div><div class="k">重试成功</div></div>
+        </div>
+        <div class="kv"><span>缓存命中率</span><b>63%</b></div>
+        <div class="bar"><i style="width:63%"></i></div>
+        <div class="kv"><span>今日成功率</span><b>94.5%</b></div>
+      </div>
+      <!-- ④ 用量 -->
+      <div class="view" data-v="3">
+        <div class="use-block">
+          <h4>当前聊天框 · TOKEN</h4>
+          <div class="use-row"><span>输入 / 输出</span><b>12.4k / 8.1k</b></div>
+          <div class="use-row"><span>合计</span><b class="use-big">20.5k</b></div>
+        </div>
+        <div class="use-block">
+          <h4>当天消耗 · TODAY</h4>
+          <div class="use-row"><span>输入 / 输出</span><b>186k / 92k</b></div>
+          <div class="use-row"><span>合计 · 缓存命中</span><b>278k · 63%</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="pf">点击标签切换 · 无操作每 10 秒自动轮换</div>
+  </div>`;
+}
+
+/* ── 交互：点击切换 + 10s 自动轮换 + 吞吐滚动 ────────── */
+function initPanel(root){
+  root.innerHTML = panelHTML();
+  const tabs  = [...root.querySelectorAll('.tab')];
+  const views = [...root.querySelectorAll('.view')];
+  const prog  = root.querySelector('.tprog i');
+  let cur = 0, timer = null;
+
+  function show(i, manual){
+    cur = (i + tabs.length) % tabs.length;
+    tabs.forEach((t, k) => t.classList.toggle('on', k === cur));
+    views.forEach((v, k) => v.classList.toggle('on', k === cur));
+    prog.style.animation = 'none'; void prog.offsetWidth; prog.style.animation = '';
+    clearTimeout(timer);
+    timer = setTimeout(() => show(cur + 1, false), 10000);   // 无操作 10s 自动轮换
+    void manual;
+  }
+  tabs.forEach((t, k) => t.addEventListener('click', () => show(k, true)));
+  show(0, true);
+
+  // 吞吐：每秒左移一格，柱状图上方大数字同步
+  const bars = root.querySelector('.tps-bars');
+  const num  = root.querySelector('.tps-num');
+  const vals = Array.from({length: 30}, (_, i) => 30 + Math.round(80 * Math.abs(Math.sin(i * 0.7))));
+  const paint = () => {
+    bars.innerHTML = vals.map(v => `<i style="height:${12 + v * 0.32}px" class="${v < 60 ? 'low' : ''}"></i>`).join('');
+  };
+  paint();
+  setInterval(() => {
+    vals.shift();
+    vals.push(Math.max(8, Math.round(vals[vals.length - 1] + (Math.random() - 0.48) * 70)));
+    paint();
+    num.textContent = vals[vals.length - 1];
+  }, 1000);
+}
+
+initPanel(document.getElementById('p1'));
+initPanel(document.getElementById('p2'));
+</script>
+</body>
+</html>

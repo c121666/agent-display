@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>面板原型 · 任务 / 问题 / 测试 v0（切换样式三方案 · 模拟）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+/* 配色沿用 index.html · tpl-ops 纸面工程变量 */
+:root{
+  --bg:#eeede8; --panel:#f6f5f1; --ink:#151515; --ink2:#4a4a46; --mute:#86857f;
+  --hair:#d2d0c9; --hair2:#e4e2dc;
+  --font:"JetBrains Mono","Noto Sans SC",ui-monospace,Menlo,monospace;
+  --cjk:"Noto Sans SC","JetBrains Mono",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:12px;
+  -webkit-font-smoothing:antialiased; padding:20px;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px),
+    repeating-linear-gradient(90deg, transparent 0 27px, rgba(21,21,21,.035) 27px 28px);
+}
+h1{font-family:var(--cjk); font-size:19px; margin:0 0 4px}
+h2{font-family:var(--cjk); font-size:14px; margin:22px 0 6px}
+.sub{color:var(--mute); margin-bottom:16px; line-height:1.8}
+.wrap{display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start}
+.stage{display:grid; gap:10px}
+.row3{display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start}
+.cap{font-size:10px; letter-spacing:.12em; color:var(--mute)}
+.cap b{color:var(--ink); font-family:var(--cjk); letter-spacing:.04em}
+/* ── 面板本体（1:1 = 看板里的实际比例） ─────────────── */
+.panel{
+  width:288px; height:184px; background:var(--panel); border:1px solid var(--hair);
+  padding:9px 11px 8px; display:flex; flex-direction:column; overflow:hidden;
+}
+.zoom{width:576px; height:368px; position:relative}
+.zoom .panel{transform:scale(2); transform-origin:top left}
+.ph{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px}
+.ph h3{margin:0; font-size:9px; font-weight:800; letter-spacing:.1em; white-space:nowrap}
+.ph h3 i{font-style:normal; font-family:var(--cjk); font-weight:500; color:var(--mute); letter-spacing:.06em; margin-left:6px}
+.ph span{font-size:8.5px; color:var(--mute); white-space:nowrap}
+.pb{flex:1; min-height:0; position:relative; overflow:hidden}
+.view{position:absolute; inset:0; display:none; flex-direction:column; gap:6px}
+.view.on{display:flex}
+.pf{margin-top:6px; font-size:7.5px; letter-spacing:.08em; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pf b{color:var(--ink); font-weight:500}
+.sw{cursor:pointer; font-family:var(--cjk); background:transparent; color:var(--mute)}
+.sw i{font-style:normal; font-family:var(--font); font-size:7px; margin-left:3px; opacity:.85}
+
+/* ── 切换器 A · 下划线分节（图纸题栏式） ────────────── */
+.su{display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid var(--hair); margin-bottom:7px}
+.su .sw{border:none; border-bottom:2px solid transparent; padding:2px 2px 5px; margin-bottom:-1px;
+  font-size:8.5px; font-weight:700; letter-spacing:.08em}
+.su .sw.on{color:var(--ink); border-bottom-color:var(--ink)}
+.su .sw.on i{color:var(--ink2); opacity:1}
+
+/* ── 切换器 B · 文件夹页签（档案袋样式） ────────────── */
+.sf{display:flex; gap:3px; border-bottom:1px solid var(--ink); margin-bottom:7px}
+.sf .sw{font-size:8.5px; font-weight:700; letter-spacing:.06em; padding:5px 9px 4px;
+  border:1px solid var(--hair); border-bottom:none; border-radius:3px 3px 0 0;
+  background:var(--hair2); margin-bottom:-1px}
+.sf .sw.on{position:relative; z-index:1; background:var(--panel); border-color:var(--ink);
+  color:var(--ink); border-bottom:1px solid var(--panel)}
+
+/* ── 切换器 C · 竖排索引（账本侧标签） ──────────────── */
+.vwrap{display:flex; gap:6px; flex:1; min-height:0}
+.sv{display:flex; flex-direction:column; gap:3px; width:26px; flex:none}
+.sv .sw{writing-mode:vertical-rl; font-size:7.5px; font-weight:700; letter-spacing:.14em;
+  padding:5px 4px; border:1px solid var(--hair); text-align:center}
+.sv .sw i{display:none}
+.sv .sw.on{background:var(--ink); border-color:var(--ink); color:var(--panel)}
+
+/* ── 公共小件 ─────────────────────────────────────── */
+.tiles{display:grid; gap:4px}
+.tiles5{grid-template-columns:repeat(5,1fr)}
+.tiles3{grid-template-columns:repeat(3,1fr)}
+.tile{border:1px solid var(--hair); padding:3px 5px}
+.tile .n{font-size:12px; font-weight:800; line-height:1.15; white-space:nowrap}
+.tile .n small{font-size:9px; color:var(--mute); font-weight:400}
+.tile .k{font-size:7px; color:var(--mute); font-family:var(--cjk); line-height:1.2}
+.tile.alarm .n{border-bottom:2px solid var(--ink); display:inline-block; padding-bottom:1px}
+/* 热力图（示意） */
+.hm{display:grid; gap:4px}
+.hrow{display:grid; grid-template-columns:44px 1fr; gap:6px; align-items:center}
+.hname{font-size:8px; color:var(--ink2); text-align:right; white-space:nowrap}
+.hcells{display:grid; grid-template-columns:repeat(30,1fr); gap:2px}
+.hcells i{aspect-ratio:1; border:1px solid var(--hair2)}
+.hcells i.l1{background:rgba(21,21,21,.15); border-color:transparent}
+.hcells i.l2{background:rgba(21,21,21,.36); border-color:transparent}
+.hcells i.l3{background:rgba(21,21,21,.62); border-color:transparent}
+.hcells i.l4{background:rgba(21,21,21,.88); border-color:transparent}
+.hcells i.na{border:1px dashed var(--mute)}
+.hleg{display:flex; align-items:center; gap:4px; font-size:7.5px; color:var(--mute)}
+.hleg i{width:8px; height:8px; display:inline-block}
+/* 任务 */
+.rows{display:grid; gap:3px}
+.row{display:grid; grid-template-columns:3.2em minmax(0,1fr) 3em; gap:6px; font-size:8.5px; line-height:1.5; white-space:nowrap}
+.row .ty{font-family:var(--cjk); font-weight:700; color:var(--ink)}
+.row .d{overflow:hidden; text-overflow:ellipsis; font-family:var(--cjk); color:var(--ink2)}
+.row .t{color:var(--mute); text-align:right; font-variant-numeric:tabular-nums}
+/* 问题 */
+.tl{display:grid; gap:5px}
+.tl .r{display:grid; grid-template-columns:4.6em minmax(0,1fr) 4.6em; gap:6px; align-items:center; font-size:8px}
+.tl .sig{font-family:var(--cjk); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tl .dots{display:flex; gap:5px; align-items:center; border-bottom:1px solid var(--hair2); height:11px}
+.tl .dots i{width:5px; height:5px; border-radius:50%; background:var(--ink)}
+.tl .cnt{text-align:right; color:var(--mute); white-space:nowrap; font-family:var(--cjk)}
+.tl .cnt b{color:var(--ink); font-weight:700}
+.tl .cnt em{font-style:normal; border:1px solid var(--ink); padding:0 3px; margin-left:3px; font-size:7px}
+/* 测试 */
+.trow{display:grid; grid-template-columns:2.8em 4.6em minmax(0,1fr); gap:6px; align-items:center; font-size:8px}
+.trow .mod{font-family:var(--cjk); font-weight:700}
+.trow .rate{font-variant-numeric:tabular-nums; color:var(--ink2)}
+.trow .rate b{color:var(--ink)}
+.spark{display:flex; align-items:flex-end; gap:2px; height:16px}
+.spark i{flex:1; background:repeating-linear-gradient(0deg,var(--ink) 0 2px,transparent 2px 4px); min-height:2px}
+.spark i.low{background:repeating-linear-gradient(0deg,var(--hair) 0 2px,transparent 2px 4px)}
+/* 说明区 */
+.note{margin-top:18px; max-width:920px; color:var(--ink2); line-height:2; font-family:var(--cjk)}
+.note table{border-collapse:collapse; font-size:11px; margin:6px 0 14px}
+.note th,.note td{border:1px solid var(--hair); padding:4px 10px; text-align:left}
+.note th{color:var(--mute); font-weight:500; font-size:10px}
+.note h3{font-size:13px; margin:16px 0 2px}
+.note ul{margin:4px 0; padding-left:20px}
+</style>
+</head>
+<body>
+
+<h1>面板原型 · 任务 / 问题 / 测试 v0 —— 切换样式三方案</h1>
+<div class="sub">
+  落位：<b>「活动热力图」面板位</b>（4 视图：热力图 / 任务 / 问题 / 测试）· 全部为模拟数据 · 配色沿用纸面工程<br>
+  问题：监控面板已经用了「按钮式标签」，这里再用就撞脸 → 下面 <b>A / B / C 三种切换样式</b>对比，内容完全相同，点击都可切换<br>
+  <b>定稿 2026-10-22</b>：选 <b>A 下划线分节</b>；任务视图改为「执行进度」（自监控面板并入，原五类计数 + 提交列表暂缓）；已落地 <code>index.html</code>，本页仅存档
+</div>
+
+<h2>三种切换样式（1:1 · 288 × 184）</h2>
+<div class="row3">
+  <div>
+    <div class="cap"><b>A · 下划线分节</b> · 图纸题栏式</div>
+    <div id="pa" style="margin-top:6px"></div>
+    <div class="cap" style="margin-top:6px;line-height:1.8">最轻，省高度；靠<b>横线 + 墨色</b>区分选中<br>和监控面板差异明显</div>
+  </div>
+  <div>
+    <div class="cap"><b>B · 文件夹页签</b> · 档案袋样式（推荐）</div>
+    <div id="pb1" style="margin-top:6px"></div>
+    <div class="cap" style="margin-top:6px;line-height:1.8">像纸质档案袋的<b>索引页签</b>，选中页签与<br>面板连成一体；最贴纸面工程气质</div>
+  </div>
+  <div>
+    <div class="cap"><b>C · 竖排索引</b> · 账本侧标签</div>
+    <div id="pc" style="margin-top:6px"></div>
+    <div class="cap" style="margin-top:6px;line-height:1.8">竖排中文 + 左侧<b>书脊式</b>索引，最别致；<br>代价是吃掉约 26px 内容宽度</div>
+  </div>
+</div>
+
+<h2>推荐方案放大（B · 文件夹页签 · 约 2×）</h2>
+<div class="wrap">
+  <div class="zoom" id="pb2"></div>
+  <div class="note">
+    <b>切换样式对比</b>：
+    <table>
+      <tr><th>方案</th><th>观感</th><th>占用高度</th><th>与监控面板区分度</th><th>备注</th></tr>
+      <tr><td>A 下划线分节</td><td>轻、像图纸题栏 / 表格分节</td><td>最小（约 14px）</td><td>高</td><td>给内容省地方</td></tr>
+      <tr><td>B 文件夹页签</td><td>档案袋索引页签，选中连通面板</td><td>中（约 22px）</td><td>高</td><td><b>推荐</b>：气质最搭纸面工程</td></tr>
+      <tr><td>C 竖排索引</td><td>账本 / 书脊侧标签，竖排中文</td><td>不占高，占宽 26px</td><td>最高</td><td>最别致，内容区略窄</td></tr>
+    </table>
+    <b>内容 → 视图分组</b>（与上一版一致，未动）：
+    <table>
+      <tr><th>视图</th><th>内容</th><th>数据（契约 v1）</th></tr>
+      <tr><td>① 热力图 HEAT</td><td>现看板内容原样：git 提交次数 × 近 30 天，行成对规则不变</td><td><code>repos[].daily[].commits</code></td></tr>
+      <tr><td>② 任务 TASK</td><td>任务 = git 提交（一次提交一个任务）。5 类计数：新任务 / 修复 / 优化 / 测试 / 回归；下排最近提交列表</td><td><b>契约待补</b></td></tr>
+      <tr><td>③ 问题 ISSUE</td><td>满 3 次待优化（告警）/ 问题总数 / 本周新增 + 复发时间线（每签名一行，满 3 次标待优化）</td><td><code>issues[]</code></td></tr>
+      <tr><td>④ 测试 TEST</td><td>通过率 / 测试失败 / 回归未跑 + 单元 / 集成 / E2E 趋势小图</td><td><code>tests[]</code></td></tr>
+    </table>
+    <h3>仍待拍板（同上一版）</h3>
+    <ul>
+      <li>任务计数口径：<b>今日</b>（暂按此画）还是近 7 天；最近提交列表条数（约 4 条）要不要</li>
+      <li>热力图视图①去留（已定内容，默认保留）</li>
+      <li>契约缺口：提交类型 / 列表无字段；「任务 = 提交」与 <code>tasks</code> 八列模型待对齐</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ── 视图内容（三种样式共用，未动） ─────────────────── */
+function cells(seed){
+  let s = '';
+  for (let d = 0; d < 30; d++){
+    const x = Math.abs(Math.sin(seed * 37.7 + d * 12.9)) % 1;
+    s += `<i class="${x > .82 ? 'l4' : x > .6 ? 'l3' : x > .38 ? 'l2' : x > .15 ? 'l1' : ''}"></i>`;
+  }
+  return s;
+}
+function spark(seed){
+  let s = '';
+  for (let i = 0; i < 12; i++){
+    const x = Math.abs(Math.sin(seed * 21.3 + i * 7.7)) % 1;
+    s += `<i class="${x < .18 ? 'low' : ''}" style="height:${4 + x * 12}px"></i>`;
+  }
+  return s;
+}
+function viewsHTML(){
+  return `
+    <div class="view on" data-v="0">
+      <div class="hm">
+        <div class="hrow"><div class="hname">前端 1</div><div class="hcells">${cells(2)}</div></div>
+        <div class="hrow"><div class="hname">后端 1</div><div class="hcells">${cells(3)}</div></div>
+        <div class="hrow"><div class="hname">前端 2</div><div class="hcells">${cells(4)}</div></div>
+        <div class="hrow"><div class="hname">后端 2</div><div class="hcells">${cells(5)}</div></div>
+      </div>
+      <div class="hleg">
+        <span>少</span><i style="background:rgba(21,21,21,.15)"></i><i style="background:rgba(21,21,21,.36)"></i>
+        <i style="background:rgba(21,21,21,.62)"></i><i style="background:rgba(21,21,21,.88)"></i>
+        <span>多</span><i class="na" style="border:1px dashed var(--mute)"></i><span>未采集</span></div>
+    </div>
+    <div class="view" data-v="1">
+      <div class="tiles tiles5">
+        <div class="tile"><div class="n">12</div><div class="k">新任务</div></div>
+        <div class="tile"><div class="n">5</div><div class="k">修复</div></div>
+        <div class="tile"><div class="n">4</div><div class="k">优化</div></div>
+        <div class="tile"><div class="n">3</div><div class="k">测试</div></div>
+        <div class="tile"><div class="n">1</div><div class="k">回归</div></div>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="ty">修复</span><span class="d">开发统计第 4 行被面板裁掉</span><span class="t">18:02</span></div>
+        <div class="row"><span class="ty">新任务</span><span class="d">飞轮秒标时间带</span><span class="t">16:40</span></div>
+        <div class="row"><span class="ty">优化</span><span class="d">开发统计格子压紧</span><span class="t">15:12</span></div>
+        <div class="row"><span class="ty">测试</span><span class="d">看板冒烟 + 三档响应式</span><span class="t">14:00</span></div>
+      </div>
+    </div>
+    <div class="view" data-v="2">
+      <div class="tiles tiles3">
+        <div class="tile alarm"><div class="n">1</div><div class="k">满 3 次待优化</div></div>
+        <div class="tile"><div class="n">3</div><div class="k">问题总数</div></div>
+        <div class="tile"><div class="n">0</div><div class="k">本周新增</div></div>
+      </div>
+      <div class="tl">
+        <div class="r"><span class="sig">构建超时</span><span class="dots"><i></i><i></i><i></i></span><span class="cnt"><b>3</b><em>待优化</em></span></div>
+        <div class="r"><span class="sig">样式错位</span><span class="dots"><i></i><i></i></span><span class="cnt"><b>2</b></span></div>
+        <div class="r"><span class="sig">接口超时</span><span class="dots"><i></i></span><span class="cnt"><b>1</b></span></div>
+      </div>
+    </div>
+    <div class="view" data-v="3">
+      <div class="tiles tiles3">
+        <div class="tile"><div class="n">96.5<small>%</small></div><div class="k">通过率</div></div>
+        <div class="tile alarm"><div class="n">1</div><div class="k">测试失败</div></div>
+        <div class="tile alarm"><div class="n">2</div><div class="k">回归未跑</div></div>
+      </div>
+      <div class="rows">
+        <div class="trow"><span class="mod">单元</span><span class="rate"><b>97%</b> 42/43</span><span class="spark">${spark(0)}</span></div>
+        <div class="trow"><span class="mod">集成</span><span class="rate"><b>92%</b> 12/13</span><span class="spark">${spark(1)}</span></div>
+        <div class="trow"><span class="mod">E2E</span><span class="rate"><b>100%</b> 8/8</span><span class="spark">${spark(2)}</span></div>
+      </div>
+    </div>`;
+}
+
+/* ── 面板模板：style = 'a' | 'b' | 'c' ───────────────── */
+function panelHTML(style){
+  const items = [['热力图','HEAT'],['任务','TASK'],['问题','ISSUE'],['测试','TEST']];
+  const btns = items.map(([z, e], i) => `<button class="sw${i ? '' : ' on'}" data-t="${i}">${z}<i>${e}</i></button>`).join('');
+  const head = `<div class="ph"><h3>ACTIVITY<i>活跃 · 任务 · 问题 · 测试</i></h3><span>示例数据</span></div>`;
+  const foot = `<div class="pf">点击标签切换 · <b>缺数据如实显示</b> · 示例数据</div>`;
+  const views = `<div class="pb">${viewsHTML()}</div>`;
+  if (style === 'a') return `<div class="panel">${head}<div class="sbar su">${btns}</div>${views}${foot}</div>`;
+  if (style === 'b') return `<div class="panel">${head}<div class="sbar sf">${btns}</div>${views}${foot}</div>`;
+  return `<div class="panel">${head}<div class="vwrap"><div class="sbar sv">${btns}</div>${views}</div>${foot}</div>`;
+}
+
+/* ── 交互：点击切换 ─────────────────────────────────── */
+function initPanel(root, style){
+  root.innerHTML = panelHTML(style);
+  const sws = [...root.querySelectorAll('.sw')], views = [...root.querySelectorAll('.view')];
+  sws.forEach((b, k) => b.addEventListener('click', () => {
+    sws.forEach((x, j) => x.classList.toggle('on', j === k));
+    views.forEach((v, j) => v.classList.toggle('on', j === k));
+  }));
+}
+initPanel(document.getElementById('pa'), 'a');
+initPanel(document.getElementById('pb1'), 'b');
+initPanel(document.getElementById('pc'), 'c');
+initPanel(document.getElementById('pb2'), 'b');
+</script>
+</body>
+</html>

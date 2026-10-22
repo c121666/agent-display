@@ -1,0 +1,16 @@
+# 本地杂物
+server.log
+*.log
+_c.js
+check.js
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# 依赖目录（本项目无依赖，出现即误提交）
+node_modules/

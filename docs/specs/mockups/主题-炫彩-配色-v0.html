@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主题 · 炫彩 配色草图（九套全览 · 模拟）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#0c0c11; color:#e8e8f0; font:12px "JetBrains Mono","Noto Sans SC",monospace;
+  -webkit-font-smoothing:antialiased; padding:20px}
+h1{font-family:"Noto Sans SC",sans-serif; font-size:19px; margin:0 0 4px}
+h2{font-family:"Noto Sans SC",sans-serif; font-size:15px; margin:26px 0 4px}
+.sub{color:#8b8ba3; margin-bottom:14px; line-height:1.8}
+.cap{font-size:10px; letter-spacing:.12em; color:#8b8ba3; margin:14px 0 8px}
+.cap b{color:#e8e8f0; font-family:"Noto Sans SC",sans-serif; letter-spacing:.04em}
+.row{display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start}
+.card{width:330px}
+.card .hd{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px}
+.card .nm{font-family:"Noto Sans SC",sans-serif; font-size:13px; font-weight:700}
+.card .org{font-size:8px; color:#8b8ba3; letter-spacing:.08em; text-align:right}
+.card .say{font-family:"Noto Sans SC",sans-serif; font-size:10px; color:#a8a8c2; margin-top:6px; line-height:1.7}
+.tagx{display:inline-block; border:1px solid #3a3a52; padding:0 5px; margin-left:6px; font-size:8px; color:#9fd6ff}
+.tagx.on{border-color:#4dffa6; color:#4dffa6}
+.pal{--bg:#000; --panel:#000; --ink:#fff; --ink2:#bbb; --mute:#777; --hair:#333; --hair2:#222;
+  --c-task:#6af; --c-fix:#f6a; --c-opt:#6fa; --c-test:#a6f; --c-reg:#fa6;
+  --c-ok:#6fa; --c-warn:#fa6; --c-bad:#f66; --accent:#6af; --hot:#f6a;
+  background:var(--bg); color:var(--ink); border:1px solid var(--hair); padding:14px}
+/* 色卡 */
+.sw{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px}
+.sw i{width:34px; height:26px; display:flex; align-items:flex-end; justify-content:center;
+  font-style:normal; font-size:6.5px; color:rgba(255,255,255,.85); letter-spacing:.04em}
+/* 标题轨 */
+.top{display:flex; justify-content:space-between; align-items:baseline;
+  border-bottom:1px solid var(--hair); padding-bottom:6px; margin-bottom:10px}
+.top h3{margin:0; font-size:11px; letter-spacing:.06em}
+.top h3 span{font-family:"Noto Sans SC",sans-serif; color:var(--ink2)}
+.top em{font-style:normal; font-size:8px; color:var(--mute)}
+/* 下划线标签 */
+.su{display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid var(--hair); margin-bottom:10px}
+.su b{font-family:"Noto Sans SC",sans-serif; font-size:8.5px; text-align:center; padding:2px 2px 5px;
+  color:var(--mute); border-bottom:2px solid transparent; margin-bottom:-1px; font-weight:700}
+.su b.on{color:var(--accent); border-bottom-color:var(--accent)}
+/* 五类色格 */
+.types{display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-bottom:10px}
+.ty{border:1px solid var(--hair); padding:5px 3px; text-align:center; font-family:"Noto Sans SC",sans-serif}
+.ty .n{font-size:11px; font-weight:700; line-height:1.2}
+.ty .k{font-size:7px; color:var(--mute); margin-top:2px}
+/* 状态格 */
+.st{display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:10px}
+.st div{border:1px solid var(--hair); padding:5px 6px; font-family:"Noto Sans SC",sans-serif}
+.st .n{font-size:13px; font-weight:800}
+.st .k{font-size:7px; color:var(--mute)}
+/* 热力图 */
+.hm{display:grid; gap:3px; margin-bottom:6px}
+.hm .r{display:grid; grid-template-columns:38px 1fr; gap:6px; align-items:center}
+.hm .r span{font-size:7px; color:var(--mute); text-align:right}
+.hm .cells{display:grid; grid-template-columns:repeat(14,1fr); gap:2px}
+.hm .cells i{aspect-ratio:1; border:1px solid var(--hair2)}
+.hm .cells i.na{border:1px dashed var(--mute)}
+.hleg{display:flex; gap:4px; align-items:center; font-size:7px; color:var(--mute); margin-bottom:10px}
+.hleg i{width:9px; height:9px}
+/* 节点 / 柱 / 谱线 */
+.misc{display:flex; flex-direction:column; gap:8px; align-items:flex-end}
+.hlab .main{display:inline-block; border:1px solid var(--hair); background:var(--panel);
+  padding:2px 6px; font-size:8.5px; font-weight:700}
+.hlab .main.fresh{background:var(--accent); color:var(--bg); border-color:var(--accent);
+  box-shadow:0 0 10px color-mix(in srgb,var(--accent) 55%,transparent)}
+.hlab .sub{display:block; font-size:7px; color:var(--mute); margin-top:2px}
+.bars{display:flex; align-items:flex-end; gap:2px; height:30px}
+.bars i{width:5px; background:var(--accent); box-shadow:0 0 6px color-mix(in srgb,var(--accent) 45%,transparent)}
+.bars i.low{background:var(--hair); box-shadow:none}
+.streaks{display:flex; flex-direction:column; gap:3px; width:100%}
+.streaks .s{height:2px; background:linear-gradient(90deg,transparent,var(--hot))}
+.streaks .s.b{background:linear-gradient(90deg,transparent,var(--accent))}
+.streaks .s.c{background:linear-gradient(90deg,transparent,var(--c-opt))}
+/* 说明区 */
+.note{margin-top:26px; max-width:1000px; color:#c9c9d8; line-height:2; font-family:"Noto Sans SC",sans-serif}
+.note table{border-collapse:collapse; font-size:11px; margin:6px 0 14px}
+.note th,.note td{border:1px solid #2c2c3a; padding:4px 10px; text-align:left}
+.note th{color:#8b8ba3; font-weight:500; font-size:10px}
+.note h3{font-size:13px; margin:16px 0 2px}
+.note ul{margin:4px 0; padding-left:20px}
+.note code{color:#9fd6ff}
+</style>
+</head>
+<body>
+
+<h1>主题 · 炫彩 配色草图 —— 九套全览</h1>
+<div class="sub">
+  <b>出处说明</b>：没有抄任何现成色卡。每套都取自设计界一个经典<b>视觉流派</b>的名字与气质（合成器浪潮、迈阿密、酸性设计、
+  深海发光……），具体色值是我按「暗底 + 高饱和 + 互补撞色」的手感逐个手配的。每套右上角标了流派出处。<br>
+  已上板三套（A/B/C · 绿标），新增六套更炸的候选（D–I）；每套内含同一组真实看板组件，方便横向比。<br>
+  <b>定稿 2026-10-22</b>：九套全收（含原三套），已全部落地 <code>index.html</code>，按钮 11 态轮换；本页存档
+</div>
+
+<h2>已上板三套（按钮里已有）</h2>
+<div class="row" id="row1"></div>
+
+<h2>新增候选六套（更过瘾向）</h2>
+<div class="row" id="row2"></div>
+
+<div class="note">
+  <h3>九套一览</h3>
+  <table>
+    <tr><th>#</th><th>名字</th><th>流派出处</th><th>气质</th><th>炸裂度</th></tr>
+    <tr><td>A</td><td>霓虹赛博</td><td>合成器浪潮 Synthwave / Outrun</td><td>紫黑 + 青品红撞色</td><td>★★★</td></tr>
+    <tr><td>B</td><td>极光</td><td>极光 Aurora / 北欧冷色</td><td>柔和高级、久看不累</td><td>★★</td></tr>
+    <tr><td>C</td><td>全息宝石</td><td>宝石色 Gemstone / 全息</td><td>干净饱和、辨识度高</td><td>★★</td></tr>
+    <tr><td>D</td><td>酸性荧光</td><td>酸性设计 Acid Graphics / 赛博朋克 2077</td><td>酸黄绿 × 荧光粉，最刺眼</td><td>★★★★★</td></tr>
+    <tr><td>E</td><td>激光 RGB</td><td>电竞 RGB / Laser Disco</td><td>纯黑 + 纯红绿蓝，极客暴击</td><td>★★★★★</td></tr>
+    <tr><td>F</td><td>迈阿密</td><td>迈阿密 Vice / 蒸汽波 Vaporwave</td><td>紫底粉青霓虹，复古霓虹夜</td><td>★★★★</td></tr>
+    <tr><td>G</td><td>烈焰熔岩</td><td>熔岩 Magma / 余烬</td><td>黑红橙金，暖色爆燃</td><td>★★★★</td></tr>
+    <tr><td>H</td><td>深海荧光</td><td>生物发光 Bioluminescence</td><td>深海青 + 水母紫粉，深邃</td><td>★★★</td></tr>
+    <tr><td>I</td><td>虹彩</td><td>油膜全息 Iridescent</td><td>暗底彩虹粉彩，糖果感</td><td>★★★</td></tr>
+  </table>
+  <h3>挑法建议</h3>
+  <ul>
+    <li>「不够过瘾」→ 优先试 <b>D 酸性荧光</b>（黄绿最炸）或 <b>E 激光 RGB</b>（纯色极客）</li>
+    <li>要炫但不刺眼 → <b>F 迈阿密</b>（复古霓虹夜，拍照最好看）或 <b>G 熔岩</b>（暖色系唯一一档）</li>
+    <li>多套并存没问题：按钮轮换已支持任意套数（现在 5 态，加一套就是 6 态）</li>
+  </ul>
+  <h3>待你拍板</h3>
+  <ul>
+    <li>候选里<b>收哪几套</b>进炫彩（全收也行，按钮就变成 9 态轮换）</li>
+    <li>要不要给收进来的套数排个轮换顺序（比如最爱的排前面）</li>
+  </ul>
+</div>
+
+<script>
+const P = [
+  { id:'A', on:1, name:'霓虹赛博', en:'NEON', org:'合成器浪潮 Synthwave',
+    say:'已上板。紫黑底 + 青/品红/荧光绿，对比最强的一套。',
+    bg:'#0a0614', panel:'#150c26', ink:'#f3edff', ink2:'#bda8f5', mute:'#7e69b4', hair:'#33245c', hair2:'#241a42',
+    task:'#37d6ff', fix:'#ff4fd8', opt:'#4dffa6', test:'#a97bff', reg:'#ffb02e',
+    ok:'#4dffa6', warn:'#ffb02e', bad:'#ff4f7d', accent:'#37d6ff', hot:'#ff4fd8', h:['#241a42','#4b2e7e','#7e49b8','#a97bff'] },
+  { id:'B', on:1, name:'极光', en:'AURORA', org:'极光 Aurora / 北欧冷色',
+    say:'已上板。蓝绿底柔辉，久看不累，办公室常开首选。',
+    bg:'#05141a', panel:'#0a222c', ink:'#e8fbff', ink2:'#8fd8e8', mute:'#4f8fa6', hair:'#1d4557', hair2:'#123242',
+    task:'#5cc8ff', fix:'#ff8cd8', opt:'#5cffc1', test:'#b08cff', reg:'#ffd76b',
+    ok:'#5cffc1', warn:'#ffd76b', bad:'#ff7d9c', accent:'#5cffc1', hot:'#ff8cd8', h:['#123242','#1d5f6e','#2e97a0','#5cc8ff'] },
+  { id:'C', on:1, name:'全息宝石', en:'HOLO', org:'宝石色 Gemstone',
+    say:'已上板。五类颜色最干净好认，饱和但不闹。',
+    bg:'#0b0b12', panel:'#13131c', ink:'#f2f2f8', ink2:'#a8a8c2', mute:'#6e6e8a', hair:'#2c2c40', hair2:'#1e1e2c',
+    task:'#5ca0ff', fix:'#ff5c7a', opt:'#3de0a0', test:'#b06cff', reg:'#ffb45c',
+    ok:'#3de0a0', warn:'#ffb45c', bad:'#ff5c7a', accent:'#5ca0ff', hot:'#b06cff', h:['#1e1e2c','#2c3f7a','#4a63c8','#5ca0ff'] },
+  { id:'D', name:'酸性荧光', en:'ACID', org:'酸性设计 / 赛博朋克 2077',
+    say:'最炸的一套：酸黄绿 × 荧光粉 × 电光青，展厅几米外都晃眼。',
+    bg:'#0d0d02', panel:'#17190a', ink:'#f6ffd9', ink2:'#c8e84e', mute:'#8a9436', hair:'#3c4214', hair2:'#262b0c',
+    task:'#00e5ff', fix:'#ff2e88', opt:'#d7ff00', test:'#b96bff', reg:'#ff9d00',
+    ok:'#d7ff00', warn:'#ff9d00', bad:'#ff2e88', accent:'#d7ff00', hot:'#ff2e88', h:['#262b0c','#5a6b12','#9dbd16','#d7ff00'] },
+  { id:'E', name:'激光 RGB', en:'RGB', org:'电竞 RGB / Laser Disco',
+    say:'纯黑底 + 纯红绿蓝白，极客暴击；想更炸可以把辉光调满。',
+    bg:'#050505', panel:'#0e0e0e', ink:'#ffffff', ink2:'#c8c8c8', mute:'#787878', hair:'#2e2e2e', hair2:'#1c1c1c',
+    task:'#0080ff', fix:'#ff0040', opt:'#00ff88', test:'#ffdd00', reg:'#b46bff',
+    ok:'#00ff88', warn:'#ffdd00', bad:'#ff0040', accent:'#00ff88', hot:'#ff0040', h:['#1c1c1c','#3d3d3d','#6b6b6b','#00ff88'] },
+  { id:'F', name:'迈阿密', en:'MIAMI', org:'迈阿密 Vice / 蒸汽波',
+    say:'紫底霓虹粉青，复古霓虹夜；拍照、直播背景最好看的一套。',
+    bg:'#170a2c', panel:'#251145', ink:'#ffe9fb', ink2:'#e29bf5', mute:'#9a6bc4', hair:'#4a2a78', hair2:'#331c58',
+    task:'#41e2ff', fix:'#ff5fa2', opt:'#6bffd2', test:'#c888ff', reg:'#ff9e4f',
+    ok:'#6bffd2', warn:'#ff9e4f', bad:'#ff5fa2', accent:'#ff5fa2', hot:'#41e2ff', h:['#331c58','#6b33a8','#b04fd8','#ff5fa2'] },
+  { id:'G', name:'烈焰熔岩', en:'MAGMA', org:'熔岩 Magma / 余烬',
+    say:'唯一的暖色档：黑红橙金像炉火，冬天看很带感。',
+    bg:'#140503', panel:'#210b06', ink:'#ffe9d6', ink2:'#ff9d6b', mute:'#a85f3c', hair:'#4a1c10', hair2:'#2e110a',
+    task:'#ffb02e', fix:'#ff5435', opt:'#ffd166', test:'#ff8fab', reg:'#f94144',
+    ok:'#ffd166', warn:'#ff9d00', bad:'#f94144', accent:'#ff8a3d', hot:'#ffd166', h:['#2e110a','#7a2c14','#c9541f','#ff8a3d'] },
+  { id:'H', name:'深海荧光', en:'ABYSS', org:'生物发光 Bioluminescence',
+    say:'深海青底 + 水母紫粉，深邃安静；光晕效果下像水下发光。',
+    bg:'#03101c', panel:'#07202f', ink:'#d9f7ff', ink2:'#6fd6e8', mute:'#3f7d92', hair:'#133b52', hair2:'#0c2a3c',
+    task:'#35c8ff', fix:'#ff6ec7', opt:'#22f5d8', test:'#7a5cff', reg:'#ffd166',
+    ok:'#22f5d8', warn:'#ffd166', bad:'#ff6ec7', accent:'#22f5d8', hot:'#7a5cff', h:['#0c2a3c','#135270','#1e86a8','#22f5d8'] },
+  { id:'I', name:'虹彩', en:'IRIS', org:'油膜全息 Iridescent',
+    say:'暗底彩虹粉彩，糖果感最年轻；五类色偏粉彩，柔但不闷。',
+    bg:'#0f0c16', panel:'#191325', ink:'#f6efff', ink2:'#c9a8f0', mute:'#8a6fb0', hair:'#3a2b56', hair2:'#271c3c',
+    task:'#7ee8fa', fix:'#ff9ce8', opt:'#9dffc2', test:'#b39dff', reg:'#fff39d',
+    ok:'#9dffc2', warn:'#fff39d', bad:'#ff9ce8', accent:'#7ee8fa', hot:'#ff9ce8', h:['#271c3c','#5b3f8f','#9a6fd8','#ff9ce8'] }
+];
+
+function card(p){
+  const cell = c => `<i style="background:${c}"></i>`;
+  return `
+  <div class="card">
+    <div class="hd">
+      <div class="nm">${p.id} · ${p.name} <span style="font-family:var(--mono);font-size:9px;color:#8b8ba3">${p.en}</span></div>
+      <div class="org">流派：${p.org}<span class="tagx ${p.on ? 'on' : ''}">${p.on ? '已上板' : '候选'}</span></div>
+    </div>
+    <div class="pal" style="--bg:${p.bg};--panel:${p.panel};--ink:${p.ink};--ink2:${p.ink2};--mute:${p.mute};
+      --hair:${p.hair};--hair2:${p.hair2};--accent:${p.accent};--hot:${p.hot};--c-task:${p.task};--c-fix:${p.fix};
+      --c-opt:${p.opt};--c-test:${p.test};--c-reg:${p.reg};--c-ok:${p.ok};--c-warn:${p.warn};--c-bad:${p.bad}">
+      <div class="sw"><i style="background:${p.bg}">bg</i><i style="background:${p.panel}">panel</i>
+        <i style="background:${p.task}">任务</i><i style="background:${p.fix}">修复</i><i style="background:${p.opt}">优化</i>
+        <i style="background:${p.test}">测试</i><i style="background:${p.reg}">回归</i></div>
+      <div class="top"><h3>PROJECT OPS <span>/ 项目</span></h3><em>21:40:12</em></div>
+      <div class="su"><b class="on">热力图</b><b>任务</b><b>问题</b><b>测试</b></div>
+      <div class="types">
+        <div class="ty"><div class="n" style="color:var(--c-task)">任务</div><div class="k">12</div></div>
+        <div class="ty"><div class="n" style="color:var(--c-fix)">修复</div><div class="k">5</div></div>
+        <div class="ty"><div class="n" style="color:var(--c-opt)">优化</div><div class="k">4</div></div>
+        <div class="ty"><div class="n" style="color:var(--c-test)">测试</div><div class="k">3</div></div>
+        <div class="ty"><div class="n" style="color:var(--c-reg)">回归</div><div class="k">1</div></div>
+      </div>
+      <div class="st">
+        <div><div class="n" style="color:var(--c-ok)">96.5%</div><div class="k">通过</div></div>
+        <div><div class="n" style="color:var(--c-warn)">2</div><div class="k">待复核</div></div>
+        <div><div class="n" style="color:var(--c-bad)">1</div><div class="k">告警</div></div>
+      </div>
+      <div class="hm">
+        <div class="r"><span>前端 1</span><div class="cells">
+          ${cell(p.hair2)}${cell(p.h[1])}${cell(p.h[2])}${cell(p.h[3])}${cell(p.accent)}<i class="na"></i>${cell(p.hair2)}${cell(p.h[2])}${cell(p.hot)}${cell(p.h[1])}${cell(p.h[3])}${cell(p.hair2)}${cell(p.accent)}${cell(p.h[2])}
+        </div></div>
+        <div class="r"><span>后端 1</span><div class="cells">
+          ${cell(p.h[1])}${cell(p.h[3])}${cell(p.hair2)}${cell(p.accent)}${cell(p.h[2])}${cell(p.h[1])}${cell(p.hot)}<i class="na"></i><i class="na"></i>${cell(p.hair2)}${cell(p.h[3])}${cell(p.h[1])}${cell(p.hair2)}${cell(p.h[2])}
+        </div></div>
+      </div>
+      <div class="hleg"><span>少</span>${cell(p.hair2)}${cell(p.h[1])}${cell(p.h[2])}${cell(p.h[3])}${cell(p.hot)}<span>多</span><i class="na" style="border:1px dashed var(--mute)"></i><span>未采集</span></div>
+      <div class="misc">
+        <div class="hlab"><span class="main fresh">W02 — 修复</span><span class="sub">汇入 21 · 测试 100% · 通过</span></div>
+        <div class="bars"><i style="height:12px"></i><i style="height:20px"></i><i class="low" style="height:8px"></i><i style="height:26px"></i><i style="height:16px"></i><i style="height:22px"></i></div>
+        <div class="streaks"><div class="s"></div><div class="s b"></div><div class="s c"></div></div>
+      </div>
+    </div>
+    <div class="say">${p.say}</div>
+  </div>`;
+}
+
+document.getElementById('row1').innerHTML = P.filter(p => p.on).map(card).join('');
+document.getElementById('row2').innerHTML = P.filter(p => !p.on).map(card).join('');
+</script>
+</body>
+</html>
