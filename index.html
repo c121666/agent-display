@@ -292,6 +292,7 @@ body{background:var(--page);overflow:hidden}
 .use-row{display:flex;justify-content:space-between;font-size:8px;color:var(--ink2);line-height:1.9}
 .use-row b{color:var(--ink);font-weight:700}
 .use-big{font-size:14px;font-weight:800}
+.na{opacity:.45}   /* 缺失态：未采集 / 未接入一律灰显 '—'，禁补 0（数据契约第 4 节） */
 
 .code{margin:0;height:100%;font-size:9.5px;line-height:13px;overflow:hidden}
 .code .row{display:block;white-space:pre}
@@ -1066,7 +1067,7 @@ sc.addEventListener('pointerleave', () => { hoverHub = -1; tip.hidden = true; ne
 
 /* ================= 6. 任务 / token 监控（数字汇报 · 第二步，替换粒子求解器） =================
    标签页：任务 TASK / 吞吐 TPS / 请求 REQ / 用量 USE；点击切换，无操作每 10 秒自动轮换。
-   吞吐图每秒左移一格，柱子由一条条横线组成。当前均为示例数据，真实数据接入随 Q1 一起设计。 */
+   吞吐图每秒左移一格，柱子由一条条横线组成。无快照时为示例数据；数据同步见下方 syncTokens()。 */
 const mon = $('#monitor');
 const monTabs = [...mon.querySelectorAll('.tab')], monViews = [...mon.querySelectorAll('.view')], monProg = mon.querySelector('.tprog i');
 let monCur = 0, monTimer = null;
@@ -1099,11 +1100,68 @@ function tpsPaint(){
 }
 tpsPaint();
 setInterval(() => {
-  if (paused || host.hidden) return;
+  if (paused || host.hidden || tokMode !== 'demo') return;
   tpsVals.shift();
   tpsVals.push(Math.max(8, Math.round(tpsVals[tpsVals.length - 1] + (Math.random() - 0.48) * 70)));
   tpsPaint();
 }, 1000);
+
+/* ===== 数据同步（P1 · 2026-10-22）：data/*.json 快照 → 本面板 =====
+   三态（口径见 docs/specs/调度中心-数据同步设计.md 第 5 节）：
+   无快照（含 file://）= 演示，保留模拟数据；快照有 tokens 节 = 同步真数据；
+   快照无 tokens 节 = 未接入，数值全 '—'。字段 null = 未采集，同样 '—'。
+   不新增元素 id（id 同步清单不变），全部用模板结构选择器定位。 */
+const monFoot = mon.querySelector('.pf'), monTpsFoot = [...mon.querySelectorAll('.tps-foot span')];
+const monReqN = [...mon.querySelectorAll('.view[data-v="1"] .tile .n')], monReqRate = [...mon.querySelectorAll('.view[data-v="1"] .kv b')];
+const monReqBar = mon.querySelector('.view[data-v="1"] .bar i'), monUse = [...mon.querySelectorAll('.view[data-v="2"] .use-row b')];
+let tokMode = 'demo';
+function nv(el, text, na){ el.textContent = text; el.classList.toggle('na', !!na); }
+function kfmt(n){ return n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
+function paintTokens(tk){
+  const tps = tk.tps || {}, req = tk.requests || {}, ses = tk.session || {}, tod = tk.today || {};
+  nv(tpsNum, tps.now == null ? '—' : String(tps.now), tps.now == null);
+  const series = (tps.series || []).slice(-26);
+  tpsBars.innerHTML = series.map(v => `<i style="height:${Math.min(96, 14 + v * 0.3)}px" class="${v < 60 ? 'low' : ''}"></i>`).join('');
+  nv(monTpsFoot[0], '峰值 ' + (tps.peak30s == null ? '—' : tps.peak30s), tps.peak30s == null);
+  nv(monTpsFoot[1], '均值 ' + (tps.avg30s == null ? '—' : tps.avg30s), tps.avg30s == null);
+  const rq = [req.total, req.ok, req.failed, req.retried];
+  monReqN.forEach((el, i) => nv(el, rq[i] == null ? '—' : String(rq[i]), rq[i] == null));
+  nv(monReqRate[0], req.cacheHitRate == null ? '—' : Math.round(req.cacheHitRate * 100) + '%', req.cacheHitRate == null);
+  nv(monReqRate[1], req.successRateToday == null ? '—' : (req.successRateToday * 100).toFixed(1) + '%', req.successRateToday == null);
+  monReqBar.style.width = req.cacheHitRate == null ? '0' : Math.round(req.cacheHitRate * 100) + '%';
+  // 合计 = 输入 + 输出（输入已含缓存，采集器口径见 collect_tokens.py）
+  const inOut = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input) + ' / ' + kfmt(b.output);
+  const sum = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input + b.output);
+  nv(monUse[0], inOut(ses), ses.input == null || ses.output == null);
+  nv(monUse[1], sum(ses), ses.input == null || ses.output == null);
+  nv(monUse[2], inOut(tod), tod.input == null || tod.output == null);
+  const hit = (tod.input && tod.cacheRead != null) ? ' · ' + Math.round(tod.cacheRead / tod.input * 100) + '%' : ' · —';
+  nv(monUse[3], sum(tod) + hit, tod.input == null || tod.output == null);
+}
+async function syncTokens(){
+  let snaps;
+  try {
+    const dir = await fetch('data/');
+    if (!dir.ok) return;
+    const names = [...(await dir.text()).matchAll(/href="([^"]+\.json)"/g)]
+      .map(m => m[1].split('/').pop()).filter(n => n && !n.startsWith('_'));
+    snaps = (await Promise.all(names.map(n => fetch('data/' + n)
+      .then(r => r.ok ? r.json() : null).catch(() => null)))).filter(Boolean);
+  } catch (e) { return; }   // file:// 或无 data/：保持演示（模拟数据）
+  const live = snaps.filter(s => s.tokens);
+  if (live.length) {
+    live.sort((a, b) => String(b.tokens.lastSync || '').localeCompare(String(a.tokens.lastSync || '')));
+    tokMode = 'live';
+    paintTokens(live[0].tokens);
+    monFoot.textContent = '数据同步 · lastSync ' + (live[0].tokens.lastSync || '—') + ' · 每 60 秒刷新';
+  } else if (snaps.length) {
+    tokMode = 'none';
+    paintTokens({});
+    monFoot.textContent = '未接入 · 快照中无 tokens 节 · 缺数据如实显示';
+  }
+}
+syncTokens();
+setInterval(() => { if (!paused && !host.hidden) syncTokens(); }, 60000);
 
 /* ================= 7. 主循环与控制 ================= */
 let simT = 0, last = performance.now(), paused = false;

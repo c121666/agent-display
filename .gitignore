@@ -4,6 +4,9 @@ server.log
 _c.js
 check.js
 
+# 数据同步快照（真实用量数据不入库；采集器见 tools/collect_tokens.py）
+data/
+
 # 系统 / 编辑器
 .DS_Store
 Thumbs.db

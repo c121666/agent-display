@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""collect_tokens.py — 采集本地 agent 会话日志 → rollup → 原子写 data/<project-id>.json
+
+口径依据：docs/specs/调度中心-数据同步设计.md（采集路线 = 会话日志解析，唯一路线）
+快照契约：docs/specs/数字汇报-数据契约.md（全量快照、原子写、缺失态禁补 0）
+
+支持的日志源（本机只扫属于 --project-dir 的会话，按文件内 cwd 过滤）：
+  pi      ~/.pi/agent/sessions/**/*.jsonl
+  claude  ~/.claude/projects/**/*.jsonl
+  codex   ~/.codex/sessions/**/*.jsonl + ~/.codex/archived_sessions/*.jsonl
+
+用法：py tools/collect_tokens.py [--project-dir DIR] [--out DIR] [--id ID] [--name NAME]
+"""
+import argparse
+import json
+import os
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+
+
+def ts_local(s):
+    """ISO 时间戳 → 本地时区 datetime；解析失败返回 None。"""
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00")).astimezone()
+    except (ValueError, TypeError):
+        return None
+
+
+def iso(dt):
+    return dt.isoformat(timespec="seconds")
+
+
+def num(x):
+    return x if isinstance(x, (int, float)) and not isinstance(x, bool) else None
+
+
+def read_jsonl(path):
+    for line in open(path, encoding="utf-8", errors="replace"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+
+def file_cwd(path, limit=30):
+    """从文件头几行找会话的 cwd（pi=type:session / codex=session_meta / claude=记录自带）。"""
+    for i, d in enumerate(read_jsonl(path)):
+        if i >= limit:
+            break
+        if d.get("type") == "session" and d.get("cwd"):
+            return d["cwd"]
+        if d.get("type") == "session_meta" and (d.get("payload") or {}).get("cwd"):
+            return d["payload"]["cwd"]
+        if d.get("cwd"):
+            return d["cwd"]
+    return None
+
+
+def same_dir(a, b):
+    return os.path.normcase(os.path.abspath(str(a))) == os.path.normcase(os.path.abspath(str(b)))
+
+
+# ---------- 各日志源解析：统一产出 {ts, agent, model, input, output, cacheRead, cacheWrite, cost, ok} ----------
+# input = 提示侧总 token（含缓存）；output 含推理 token（不单列，2026-10-22 拍板）。
+
+def parse_pi(path):
+    for d in read_jsonl(path):
+        if d.get("type") != "message":
+            continue
+        m = d.get("message") or {}
+        if m.get("role") != "assistant":
+            continue
+        u = m.get("usage") or {}
+        ts = ts_local(d.get("timestamp") or m.get("timestamp"))
+        if not ts:
+            continue
+        cr, cw = num(u.get("cacheRead")) or 0, num(u.get("cacheWrite")) or 0
+        yield {
+            "ts": ts,
+            "agent": "pi",
+            "model": "/".join(filter(None, [m.get("provider"), m.get("model")])),
+            "input": (num(u.get("input")) or 0) + cr + cw,
+            "output": num(u.get("output")) or 0,
+            "cacheRead": cr,
+            "cacheWrite": cw,
+            "cost": num((u.get("cost") or {}).get("total")),
+            "ok": not m.get("errorMessage"),
+        }
+
+
+def parse_claude(path):
+    seen = set()  # 同一 message.id 的流式续写记录只计一次
+    for d in read_jsonl(path):
+        if d.get("type") != "assistant":
+            continue
+        m = d.get("message") or {}
+        u = m.get("usage") or {}
+        mid = m.get("id")
+        if mid:
+            if mid in seen:
+                continue
+            seen.add(mid)
+        ts = ts_local(d.get("timestamp"))
+        if not ts:
+            continue
+        cr = num(u.get("cache_read_input_tokens")) or 0
+        cw = num(u.get("cache_creation_input_tokens")) or 0
+        yield {
+            "ts": ts,
+            "agent": "claude",
+            "model": m.get("model") or "",
+            "input": (num(u.get("input_tokens")) or 0) + cr + cw,
+            "output": num(u.get("output_tokens")) or 0,
+            "cacheRead": cr,
+            "cacheWrite": cw,
+            "cost": None,
+            "ok": not d.get("isApiErrorMessage"),
+        }
+
+
+def parse_codex(path):
+    model = ""
+    for d in read_jsonl(path):
+        if d.get("type") == "turn_context":
+            model = (d.get("payload") or {}).get("model") or model
+        if d.get("type") != "event_msg":
+            continue
+        p = d.get("payload") or {}
+        if p.get("type") != "token_count":
+            continue
+        lu = (p.get("info") or {}).get("last_token_usage") or {}
+        ts = ts_local(d.get("timestamp"))
+        if not ts:
+            continue
+        cr = num(lu.get("cached_input_tokens")) or 0
+        yield {
+            "ts": ts,
+            "agent": "codex",
+            "model": model,
+            "input": num(lu.get("input_tokens")) or 0,
+            "output": num(lu.get("output_tokens")) or 0,
+            "cacheRead": cr,
+            "cacheWrite": num(lu.get("cache_write_input_tokens")) or 0,
+            "cost": None,
+            "ok": True,
+            "_quota": p.get("rate_limits"),  # 最新一条胜出，rollup 时消费
+        }
+
+
+SOURCES = [
+    ("pi", parse_pi, [HOME / ".pi/agent/sessions"]),
+    ("claude", parse_claude, [HOME / ".claude/projects"]),
+    ("codex", parse_codex, [HOME / ".codex/sessions", HOME / ".codex/archived_sessions"]),
+]
+
+
+def collect(project_dir):
+    """扫所有日志源，返回属于 project_dir 的请求记录列表。"""
+    records = []
+    for _name, parser, roots in SOURCES:
+        files = [p for root in roots if root.is_dir() for p in root.rglob("*.jsonl")]
+        for f in files:
+            cwd = file_cwd(f)
+            if not cwd or not same_dir(cwd, project_dir):
+                continue
+            try:
+                recs = list(parser(f))
+                for r in recs:
+                    r["src"] = str(f)   # 供「当前聊天框」按会话文件聚合
+                records.extend(recs)
+            except OSError as e:
+                print(f"[warn] 读不动 {f}: {e}", file=sys.stderr)
+    records.sort(key=lambda r: r["ts"])
+    return records
+
+
+def rollup(records, project, now):
+    """按设计文档 3.3 口径聚合成快照 tokens 节。缺失一律 null，禁补 0。"""
+    today = now.date()
+
+    def s(recs, key):
+        return sum(r[key] for r in recs)
+
+    # tps：近 30 个整秒桶（秒桶 = 该秒内完成请求的输出 token 之和）；无活动是真实 0
+    series = [0] * 30
+    for r in records:
+        sec = int((now - r["ts"]).total_seconds())
+        if 0 <= sec < 30:
+            series[29 - sec] += r["output"]
+    tps = {
+        "now": series[29],
+        "peak30s": max(series),
+        "avg30s": round(sum(series) / 30),
+        "series": series,
+    }
+
+    # 请求四计数：窗口 = 当日（与「今日成功率」同窗）；retried 会话日志分不出 → null（未采集）
+    day = [r for r in records if r["ts"].date() == today]
+    total, ok = len(day), sum(1 for r in day if r["ok"])
+    failed = total - ok
+    reqs = {
+        "total": total,
+        "ok": ok,
+        "failed": failed,
+        "retried": None,
+        "cacheHitRate": round(s(day, "cacheRead") / s(day, "input"), 4) if day and s(day, "input") else None,
+        "successRateToday": round(ok / total, 4) if total else None,
+    }
+
+    # 当前聊天框 = 最近一个会话文件的合计
+    ses = {"input": None, "output": None, "cacheRead": None}
+    if records:
+        last = records[-1]
+        sess = [r for r in records if r.get("src") == last.get("src")]
+        ses = {"input": s(sess, "input"), "output": s(sess, "output"), "cacheRead": s(sess, "cacheRead")}
+
+    # 当天消耗；cost 只有 pi 有 → 当日记录不全带 cost 时置 null（未采集），不显示半截账
+    cost = s(day, "cost") if day and all(r["cost"] is not None for r in day) else None
+    today_block = {
+        "input": s(day, "input") if day else None,
+        "output": s(day, "output") if day else None,
+        "cacheRead": s(day, "cacheRead") if day else None,
+        "cost": cost,
+    }
+
+    # 配额：codex rate_limits 最新一条 / 每（limit_id, 档位）
+    quota = {}
+    for r in records:
+        rl = r.get("_quota") or {}
+        for key in ("primary", "secondary"):
+            q = rl.get(key) or {}
+            if q.get("used_percent") is None:
+                continue
+            quota[(rl.get("limit_id"), key)] = {
+                "account": f"codex:{rl.get('limit_id')}:{key}",
+                "remainingPct": round(100 - q["used_percent"], 1),
+                "resetAt": iso(datetime.fromtimestamp(q["resets_at"]).astimezone()) if q.get("resets_at") else None,
+                "note": f"{(q.get('window_minutes') or 0) // 60}h 窗",
+            }
+
+    return {
+        "schemaVersion": 2,
+        "project": project,
+        "tokens": {
+            "lastSync": iso(now),
+            "tps": tps,
+            "requests": reqs,
+            "session": ses,
+            "today": today_block,
+            "quota": list(quota.values()),
+        },
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser(description="采集会话日志并写 data/<id>.json 快照")
+    ap.add_argument("--project-dir", default=".", help="项目目录（只扫 cwd 属于它的会话）")
+    ap.add_argument("--out", default="data", help="快照输出目录（默认 data/）")
+    ap.add_argument("--id", default=None, help="project.id / 文件名（默认取项目目录名）")
+    ap.add_argument("--name", default=None, help="project.name（默认同 id）")
+    args = ap.parse_args()
+
+    pdir = Path(args.project_dir).resolve()
+    pid = args.id or re.sub(r"[^a-z0-9]+", "-", pdir.name.lower()).strip("-")
+    name = args.name or pdir.name
+    stack = ["html"] if (pdir / "index.html").exists() else []
+    if (pdir / "package.json").exists():
+        try:
+            stack = list((json.loads((pdir / "package.json").read_text(encoding="utf-8")).get("dependencies") or {}).keys())[:8]
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    now = datetime.now().astimezone()
+    records = collect(pdir)
+    snap = rollup(records, {
+        "id": pid,
+        "name": name,
+        "path": str(pdir),
+        "stack": stack,
+        "updatedAt": iso(now),
+        "collector": "tool:collect_tokens@agent-display",
+    }, now)
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    tmp = out / f"{pid}.json.tmp"
+    final = out / f"{pid}.json"
+    tmp.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, final)  # 原子写，看板不会读到半截文件
+    t = snap["tokens"]
+    print(f"[ok] {final}  请求(今日) {t['requests']['total']} 条 · 今日 input/output "
+          f"{t['today']['input']}/{t['today']['output']} · lastSync {t['lastSync']}")
+
+
+if __name__ == "__main__":
+    main()

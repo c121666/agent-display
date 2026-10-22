@@ -5,7 +5,7 @@
 ## 项目速览
 
 - **产品**：Agent 调度中心大屏（OPS 纸面工程风格）——AI 智能体调度可视化大屏，展示任务流、智能体接力、执行记录与产出。
-- **形态**：纯前端**单文件** HTML（`index.html`，约 900 行 = HTML + CSS + JS）。无构建步骤、无后端、无包管理器、无框架。
+- **形态**：纯前端**单文件** HTML（`index.html`，约 1200 行 = HTML + CSS + JS）。无构建步骤、无后端、无包管理器、无框架。
 - **数据**：全部为**模拟示例数据**，由内置模拟器生成，页面上标注「示例数据」。不连接任何真实接口。
 - **分支定位**：本分支 `dispatch-center-only` 只保留调度中心一款看板。**不要**重新引入多主题（SPIDER / NEURAL）、主题切换面板或 three.js 等 CDN 脚本。
 
@@ -30,6 +30,10 @@ agent-display/
 ├── AGENTS.md           # 本文件：AI 协作说明
 ├── README.md           # 面向人的文档（功能、部署、配置、改造方向）
 ├── CHANGELOG.md        # 版本记录（Keep a Changelog 风格）
+├── tools/
+│   ├── collect_tokens.py # 数据同步采集器：会话日志 → data/<id>.json 快照（token 统计）
+│   └── validate_data.py  # 快照校验（数据契约 + tokens 节）
+├── data/               # 同步快照输出目录（真实用量数据，不入库）
 ├── docs/
 │   ├── README.md       # 文档索引与文档约定
 │   └── handoff/        # 交接文档：规则、模板、索引、活跃交接、archive/
@@ -59,7 +63,8 @@ agent-display/
 | `tasks` / `agents` / `wfs` | 模拟状态。接真实数据时替换这里的初始化与推进逻辑 |
 | `step()`（900ms）/ `renderAll()` | 模拟推进 / 面板刷新 |
 | `layoutStage()` / `drawStage(t, dt)` | Canvas 舞台（数据飞轮）布局与绘制 |
-| `monShow()` / `tpsPaint()` | 任务 / token 监控面板（4 标签、点击与 10s 自动轮换、吞吐滚动图） |
+| `monShow()` / `tpsPaint()` | 任务 / token 监控面板（3 标签、点击与 10s 自动轮换、吞吐滚动图） |
+| `syncTokens()` / `paintTokens()` | 数据同步：扫 `data/*.json` 快照 → mon 面板三态（无快照=演示 / 有 tokens 节=同步 / 无 tokens 节=未接入），60s 轮询，缺失字段「—」灰显 |
 | `actTick()` / `renderAct()` | 最近动态面板（决策/日报/问题逐条打字滚动） |
 | 外壳 IIFE（文件末尾） | `attachShadow` → 克隆 `tpl-ops` → 调用 `mountOps`。**只挂载这一款看板，不要往里加切换逻辑** |
 
