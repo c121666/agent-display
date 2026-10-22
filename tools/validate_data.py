@@ -74,6 +74,42 @@ def check_tokens(tok, errors):
                     err(f"tokens.quota[{i}].remainingPct: 必须是 0-100 的数字或 null", errors)
 
 
+def check_repos(repos, errors):
+    """repos[] 节（契约 6.10）：git 提交数据，供热力图。"""
+    if not isinstance(repos, list):
+        return err("repos: 必须是数组", errors)
+    for i, r in enumerate(repos):
+        if not isinstance(r, dict) or not r.get("name"):
+            err(f"repos[{i}]: 必须是含 name 的对象", errors)
+            continue
+        for k in ("ahead", "behind", "commitsToday", "linesToday"):
+            if k in r and not is_num_or_null(r[k]):
+                err(f"repos[{i}].{k}: 必须是数字或 null", errors)
+        if "daily" not in r:
+            continue
+        if not isinstance(r["daily"], list):
+            err(f"repos[{i}].daily: 必须是数组", errors)
+            continue
+        for j, d in enumerate(r["daily"]):
+            ok = isinstance(d, dict) and d.get("date") and all(isinstance(d.get(k), int) for k in ("commits", "additions", "deletions"))
+            if not ok:
+                err(f"repos[{i}].daily[{j}]: 必须是含 date/commits/additions/deletions 的对象", errors)
+
+
+def check_heat(heat, errors):
+    """heat 节（设计文档 4 节）：提交按星期×小时分桶，供热力图「按时段」视图。"""
+    if not isinstance(heat, dict):
+        return err("heat: 必须是对象", errors)
+    m = heat.get("byHour")
+    bad = not isinstance(m, list) or len(m) != 7 or any(
+        not isinstance(r, list) or len(r) != 24 or any(not isinstance(v, int) for v in r) for r in m)
+    if bad:
+        err("heat.byHour: 必须是 7×24 整数矩阵（周一~周日 × 0-23 时）", errors)
+    b = heat.get("busiest")
+    if b is not None and (not isinstance(b, dict) or not isinstance(b.get("weekday"), int) or not isinstance(b.get("hour"), int)):
+        err("heat.busiest: 必须是 {weekday, hour} 或 null", errors)
+
+
 def check_file(path):
     errors = []
     try:
@@ -104,6 +140,10 @@ def check_file(path):
 
     if "tokens" in d:
         check_tokens(d["tokens"], errors)
+    if "repos" in d:
+        check_repos(d["repos"], errors)
+    if "heat" in d:
+        check_heat(d["heat"], errors)
     return errors
 
 

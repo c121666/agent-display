@@ -11,19 +11,20 @@
   codex   ~/.codex/sessions/**/*.jsonl + ~/.codex/archived_sessions/*.jsonl
 
 用法：
-  py tools/collect_tokens.py --scan           # 只列候选项目写 data/_candidates.json（只读会话头的 cwd）
   py tools/collect_tokens.py --project-dir <项目路径> [--project-dir <项目路径> ...]
                                             # 采集这些项目（同时记入勾选清单）
   py tools/collect_tokens.py                  # 只采勾选清单里的项目（没清单时提示怎么选）
 
-项目选择在看板「设置」浮层里勾选（勾完点「复制采集命令」粘到终端）；也可直接传 --project-dir。
-隐私约定：只解析用户勾选项目的会话内容；未勾选的项目只读会话文件头的 cwd（列候选用），不读内容。
+项目目录在看板「设置」浮层里直接添加（可多个，点「复制采集命令」粘到终端）；也可命令行传 --project-dir。
+隐私约定：只碰用户给定目录的会话与 git 仓库；不做候选扫描，不预读其他项目。
+快照含 tokens 节（token 用量）与 repos 节（git 提交热力图数据，是 git 仓库才采）。
 """
 import argparse
 import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -170,19 +171,68 @@ SOURCES = [
 ]
 
 
-def discover():
-    """列候选项目：只读会话文件头的 cwd（不解析会话内容），返回 [(cwd, 会话文件数)]。"""
-    found = {}
-    for _name, _parser, roots in SOURCES:
-        for root in roots:
-            if not root.is_dir():
-                continue
-            for f in root.rglob("*.jsonl"):
-                cwd = file_cwd(f)
-                if cwd:
-                    key = str(Path(cwd).resolve())
-                    found[key] = found.get(key, 0) + 1
-    return sorted(found.items())
+def git_data(path):
+    """项目目录的 git 提交数据，只碰 path 下的仓库：
+    repos[] = 近 90 天每日提交数与行数增减（契约 6.10）；
+    heat = 提交按「星期 × 小时」分桶（近 90 天，本地时区），供热力图「按时段」视图。"""
+    def run(root, *args):
+        r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        return r.stdout.strip() if r.returncode == 0 else None
+
+    if run(path, "rev-parse", "--git-dir"):
+        roots = [path]
+    else:  # 项目目录本身不是仓库：找里面的仓库（如前后端分仓），最多 4 个
+        try:
+            roots = [d for d in sorted(path.iterdir()) if d.is_dir() and (d / ".git").exists()][:4]
+        except OSError:
+            roots = []
+
+    repos = []
+    heat_m = [[0] * 24 for _ in range(7)]   # [星期(周一=0)][小时]
+    for root in roots:
+        log = run(root, "log", "--since=90.days.ago", "--date=iso-local", "--pretty=format:%ad", "--numstat")
+        if log is None:
+            continue
+        daily = {}
+        cur = None
+        for line in log.splitlines():
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}", line):
+                cur = line[:10]
+                d = daily.setdefault(cur, {"date": cur, "commits": 0, "additions": 0, "deletions": 0})
+                d["commits"] += 1
+                heat_m[datetime.fromisoformat(cur).weekday()][int(line[11:13])] += 1
+            elif cur and "\t" in line:
+                a, dl, _rest = line.split("\t", 2)
+                d = daily[cur]
+                d["additions"] += int(a) if a.isdigit() else 0   # 二进制文件 numstat 是 '-'
+                d["deletions"] += int(dl) if dl.isdigit() else 0
+        today = datetime.now().astimezone().date().isoformat()
+        td = daily.get(today, {})
+        ab = run(root, "rev-list", "--left-right", "--count", "@{upstream}...HEAD")
+        behind, ahead = (int(x) for x in ab.split()) if ab and len(ab.split()) == 2 else (None, None)
+        repos.append({
+            "name": root.name,
+            "branch": run(root, "rev-parse", "--abbrev-ref", "HEAD"),
+            "ahead": ahead, "behind": behind,
+            "commitsToday": td.get("commits", 0),
+            "linesToday": (td.get("additions", 0) - td.get("deletions", 0)) if td else 0,
+            "daily": sorted(daily.values(), key=lambda x: x["date"]),
+        })
+
+    heat = None
+    if repos:
+        bw = bh = mx = 0
+        for w in range(7):
+            for h in range(24):
+                if heat_m[w][h] > mx:
+                    mx, bw, bh = heat_m[w][h], w, h
+        off = datetime.now().astimezone().strftime("%z")
+        heat = {
+            "tz": f"UTC{off[:3]}:{off[3:]}" if off else "UTC",
+            "byHour": heat_m,
+            "busiest": {"weekday": bw, "hour": bh} if mx else None,
+        }
+    return repos, heat
 
 
 def collect(project_dirs):
@@ -301,26 +351,22 @@ def write_snap(out, now, cwd, recs, pid=None, name=None):
         "updatedAt": iso(now),
         "collector": "tool:collect_tokens@agent-display",
     }, now)
+    repos, heat = git_data(d)
+    if repos:   # 不是 git 仓库就省略整节（= 未接入，契约缺失态口径）
+        snap["repos"] = repos
+        snap["heat"] = heat
     tmp = out / f"{pid}.json.tmp"
     final = out / f"{pid}.json"
     tmp.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(tmp, final)  # 原子写，看板不会读到半截文件
     t = snap["tokens"]
+    gitn = len(snap.get("repos", []))
     print(f"[ok] {final}  请求(今日) {t['requests']['total']} 条 · 今日 input/output "
-          f"{t['today']['input']}/{t['today']['output']} · lastSync {t['lastSync']}")
-
-
-def scan(out):
-    """发现候选项目（只读会话文件头的 cwd，不读内容），写 data/_candidates.json 供看板「设置」列清单。"""
-    payload = [{"name": Path(c).name, "path": c, "sessions": n} for c, n in discover()]
-    f = out / "_candidates.json"
-    f.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[ok] {f}  {len(payload)} 个候选项目（只读了会话头的 cwd，未读会话内容）")
+          f"{t['today']['input']}/{t['today']['output']} · git 仓库 {gitn} · lastSync {t['lastSync']}")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="采集用户勾选项目的会话日志并写 data/<id>.json 快照")
-    ap.add_argument("--scan", action="store_true", help="只列候选项目写 data/_candidates.json（看板「设置」列清单用）")
+    ap = argparse.ArgumentParser(description="采集用户指定项目的会话日志（token）与 git 提交数据，写 data/<id>.json 快照")
     ap.add_argument("--project-dir", action="append", default=None, metavar="DIR",
                     help="采集这些项目（可重复传多个；同时记入勾选清单）")
     ap.add_argument("--out", default="data", help="快照输出目录（默认 data/）")
@@ -332,10 +378,6 @@ def main():
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    if args.scan:
-        scan(out)
-        return
-
     pf = out / "_projects.local.json"
     if args.project_dir:
         dirs = [str(Path(d).resolve()) for d in args.project_dir]
@@ -344,9 +386,9 @@ def main():
     else:
         dirs = (json.loads(pf.read_text(encoding="utf-8")).get("projects") or []) if pf.exists() else []
         if not dirs:
-            print("尚未勾选项目。二选一：\n"
-                  "  1) 看板「设置」浮层勾选项目 → 点「复制采集命令」→ 粘到终端\n"
-                  "  2) py tools/collect_tokens.py --scan 后用 --project-dir <路径> 指定", file=sys.stderr)
+            print("尚未指定项目。二选一：\n"
+                  "  1) 看板「设置」浮层添加项目目录 → 点「复制采集命令」→ 粘到终端\n"
+                  "  2) py tools/collect_tokens.py --project-dir <项目路径> [更多路径...]", file=sys.stderr)
             return
 
     groups = {}

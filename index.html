@@ -186,7 +186,11 @@ body{background:var(--page);overflow:hidden}
 .pp-item.on span{color:var(--chip-fg);opacity:.75}
 .pp-f{margin-top:6px;font-size:7.5px;color:var(--mute);font-family:var(--cjk)}
 .pp-item label{display:flex;align-items:center;gap:5px;cursor:pointer}
-.pp-item input[type=checkbox]{margin:0;accent-color:var(--ink)}
+.pp-add{display:flex;gap:4px;margin-bottom:6px}
+.pp-in{flex:1;min-width:0;font:inherit;font-size:8px;padding:3px 5px;border:1px solid var(--hair);background:transparent;color:var(--ink);font-family:var(--font)}
+.pp-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.pp-x{border:0;background:transparent;color:var(--mute);cursor:pointer;font-size:9px;line-height:1;padding:2px}
+.pp-x:hover{color:var(--ink)}
 .pp-acts{margin-top:6px;display:flex;justify-content:flex-end}
 .pp-acts .btn{font-size:8px;padding:3px 8px}
 
@@ -209,10 +213,14 @@ body{background:var(--page);overflow:hidden}
 .panels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 /* 活动热力图（数字汇报 · 第一步）：单项目，行 = 仓库（git 提交次数）。分前后端 → 行成对（前N/后N），只显示完整对、最多 2 对；
    不分前后端 → 最多 3 行；多余的不显示（脚注提示共/显示行数）。小方块固定尺寸（不上下拉伸），行自然堆叠。缺数据如实显示。 */
-.hm{display:flex;flex-direction:column;gap:4px;height:100%;font-size:8px}
-.hrow{display:grid;grid-template-columns:52px minmax(0,1fr);gap:6px}
-.hname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center}
-.hcells{display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px;min-width:0}
+.hm{display:flex;flex-direction:column;gap:3px;height:100%;font-size:8px}
+.hm-head{display:flex;justify-content:space-between;align-items:center;color:var(--ink2);letter-spacing:.08em}
+.hm-head b{font-weight:700;color:var(--ink);font-family:var(--cjk)}
+.hrow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px}
+.hname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center;font-family:var(--cjk)}
+.hcells{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;min-width:0}
+.hm-x{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;color:var(--mute);font-size:7px}
+.hm-x .hlab{display:grid;grid-template-columns:repeat(4,1fr)}
 .hm .c{aspect-ratio:1;border:1px solid var(--hair2)}
 .hm .c.l1{background:color-mix(in srgb,var(--ink) 15%,transparent);border-color:transparent}
 .hm .c.l2{background:color-mix(in srgb,var(--ink) 36%,transparent);border-color:transparent}
@@ -220,7 +228,7 @@ body{background:var(--page);overflow:hidden}
 .hm .c.l4{background:color-mix(in srgb,var(--ink) 88%,transparent);border-color:transparent}
 .hm .c.na{border:1px dashed var(--mute);background:transparent}
 .hleg{display:flex;align-items:center;gap:4px;margin-top:auto;color:var(--mute);letter-spacing:.06em}
-.hleg .hcnt{margin-left:auto}
+.hleg .hcnt{margin-left:auto;display:flex;align-items:center;gap:3px}
 .hleg .c{width:8px;height:8px;flex:none}
 .panel{min-width:0;height:184px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--hair);padding:9px 11px 8px}
 .ph{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;min-width:0}
@@ -366,10 +374,11 @@ body{background:var(--page);overflow:hidden}
     <button class="btn" id="proj" type="button">设置</button>
   </div>
   <div class="proj-pop" id="projPop" hidden>
-    <div class="pp-h">PROJ · 项目选择</div>
+    <div class="pp-h">PROJ · 项目目录（可多个）</div>
+    <div class="pp-add"><input class="pp-in" id="projPath" placeholder="项目目录路径，如 D:\project\xx" spellcheck="false"><button class="btn" id="projAdd" type="button">添加</button></div>
     <div class="pp-list"></div>
     <div class="pp-acts"><button class="btn" id="projCopy" type="button">复制采集命令</button></div>
-    <div class="pp-f">勾选 = 统计范围；点项目名 = 大屏显示该项目。页面不能直接执行本机命令，勾选后点「复制采集命令」粘到终端跑一次</div>
+    <div class="pp-f">添加 = 要统计的项目目录（可多个）；点项目名 = 大屏显示该项目。页面不能直接执行本机命令，点「复制采集命令」粘到终端跑一次</div>
   </div>
     <canvas id="sc" aria-label="调度主视图：左侧连线汇聚到三个工作流节点，中间旋转环带滚动执行记录，右侧旋转谱线表示输出流"></canvas>
     <div class="hud"><span>STABILITY CHECK · 稳定性</span><span>CFL = |u|·Δt/Δx = <b id="cfl">0.00</b> <span id="cflst">OK</span></span></div>
@@ -391,7 +400,7 @@ body{background:var(--page);overflow:hidden}
       <div class="pb">
         <div class="view on" data-v="0">
           <div class="hm" id="hm"></div>
-          <div class="vfoot">git 提交次数 × 近 30 天 · 前后端 ≤2 对 / 单体 ≤3 行 · <b>缺数据如实显示</b></div>
+          <div class="vfoot">git 提交次数 × 星期 × 小时 · 近 90 天 · <b>缺数据如实显示</b></div>
         </div>
         <div class="view" data-v="1">
           <div class="task-name">feat/heat-pairing · 活动热力图行成对</div>
@@ -622,44 +631,52 @@ function renderFeed(){
   const n = Math.max(4, Math.floor(feedEl.clientHeight / 13.5));
   feedEl.innerHTML = feed.slice(-n).map(e => `<li><span class="n">${String(e.n).padStart(3, '0')}</span><span class="vb">${e.verb}</span><span class="d">${e.text}</span></li>`).join('');
 }
-/* ===== 活动热力图（数字汇报 · 第一步）：示例数据，后续接真实数据源（Q1） =====
-   数据语义（2026-10-21 定）：每行每天的 git 提交次数（行 = 前端/后端仓库，色阶 = 当日提交数分档）。
-   行布局规则（2026-10-21 定，B+C 方案）：只展示一个项目；分前后端 → 行成对（前N/后N），只显示完整对、最多 2 对（4 行）；
-   不分前后端 → 最多 3 行；多余的不显示（脚注提示共/显示行数）；小方块固定尺寸，不上下拉伸。 */
-function heatRow(seed){
-  const out = [];
-  for (let d = 0; d < 30; d++){
-    const x = Math.abs(Math.sin(seed * 37.7 + d * 12.9)) % 1;
-    out.push(x > .82 ? 4 : x > .6 ? 3 : x > .38 ? 2 : x > .15 ? 1 : 0);
-  }
-  return out;
-}
-const HEAT_PROJECT = 'agent-display';
-const HEAT_ROWS = [
-  {label: '前端 1', side: 'f', v: heatRow(2)},
-  {label: '后端 1', side: 'b', v: heatRow(3)},
-  {label: '前端 2', side: 'f', v: heatRow(4)},
-  {label: '后端 2', side: 'b', v: heatRow(5)},
-  {label: '前端 3', side: 'f', v: heatRow(6)}    // 孤行（无配对后端）：按规则不显示
-];
-for (let i = 26; i < 30; i++) HEAT_ROWS[1].v[i] = 'na';   // 后端 1 末 4 天未采集：如实显示，不补 0
-function heatVisible(rows){
-  if (!rows.some(r => r.side)) return rows.slice(0, 3);    // 不分前后端：最多 3 行
-  const out = [];
-  for (let i = 0; i + 1 < rows.length; i += 2){
-    if (rows[i].side === 'f' && rows[i + 1].side === 'b') out.push(rows[i], rows[i + 1]);  // 只收完整对
-  }
-  return out.slice(0, 4);                                  // 前后端：最多 2 对（4 行）
-}
-function renderHeat(){
-  const el = $('#hm'); if (!el) return;
+/* ===== 活动热力图（2026-10-22 改「按时段」视图，用户定稿）：星期（周一~周日，行固定 7 排）× 小时（0-23） =====
+   数据语义：git 提交次数按「星期 × 小时」分桶（近 90 天，本地时区）；色阶 = 提交数分档 1/3/6/10，共 5 档（含空格）。
+   不分前后端、不按仓库分行（旧「行成对 / 前后端 ≤2 对」规则废除）；无提交的格 = 真实 0（空格），未采集 = 虚线格。 */
+const HEAT_DOW = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const HEAT_LV = n => n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n >= 1 ? 1 : 0;
+function heatHtml(byHour, tz, busiest, note){
   const cell = x => `<span class="c${x === 'na' ? ' na' : x ? ' l' + x : ''}"></span>`;
-  const vis = heatVisible(HEAT_ROWS);
-  const cnt = vis.length < HEAT_ROWS.length ? `<span class="hcnt">共 ${HEAT_ROWS.length} 行 · 显示 ${vis.length}</span>` : '';
-  el.innerHTML = vis.map(p =>
-    `<div class="hrow"><div class="hname">${p.label}</div>` +
-    `<div class="hcells">${p.v.map(cell).join('')}</div></div>`).join('') +
-    `<div class="hleg"><span>少</span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span><span>多</span><span class="c na"></span><span>未采集</span>${cnt}</div>`;
+  const rows = byHour.map((row, w) =>
+    `<div class="hrow"><div class="hname">${HEAT_DOW[w]}</div><div class="hcells">${row.map(v => cell(v === 'na' ? 'na' : HEAT_LV(v))).join('')}</div></div>`).join('');
+  let busy = note;
+  if (!busy && busiest) busy = `最忙: ${HEAT_DOW[busiest.weekday]} ${String(busiest.hour).padStart(2, '0')}:00`;
+  if (!busy) {   // 没给 busiest 就自己找峰值格
+    let bw = 0, bh = 0, mx = 0;
+    byHour.forEach((row, w) => row.forEach((v, h) => { if (typeof v === 'number' && v > mx) { mx = v; bw = w; bh = h; } }));
+    busy = mx > 0 ? `最忙: ${HEAT_DOW[bw]} ${String(bh).padStart(2, '0')}:00` : '最忙: —';
+  }
+  return `<div class="hm-head"><b>按时段</b><span>${tz || ''}</span></div>` + rows
+    + `<div class="hm-x"><div></div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span></div></div>`
+    + `<div class="hleg"><span>${busy}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
+}
+function renderHeat(){   // 示例数据：工作时段重、周末轻，形态贴近真实作息
+  const el = $('#hm'); if (!el) return;
+  const m = [];
+  for (let w = 0; w < 7; w++){
+    const row = [];
+    for (let h = 0; h < 24; h++){
+      const base = w >= 5 ? 2 : 8;
+      const work = h >= 9 && h <= 21 ? base : 1;
+      const x = Math.abs(Math.sin((w + 1) * 37.7 + h * 12.9)) % 1;
+      row.push(x > .78 ? Math.round(work * 1.6) : x > .5 ? work : x > .28 ? Math.round(work * 0.4) : 0);
+    }
+    m.push(row);
+  }
+  el.innerHTML = heatHtml(m, 'Asia/Shanghai', null, '示例数据');
+}
+
+/* 热力图数据源切换：快照有 heat 节 = 真数据（git 星期×小时分桶）；无 heat 节 = 未接入；无快照 = 示例数据。 */
+function paintHeatReal(heat){
+  const el = $('#hm'); if (!el) return;
+  const m = heat && heat.byHour;
+  if (!Array.isArray(m) || m.length !== 7 || m.some(r => !Array.isArray(r) || r.length !== 24)) { paintHeatNa(); return; }
+  el.innerHTML = heatHtml(m, heat.tz, heat.busiest, null);
+}
+function paintHeatNa(){
+  const el = $('#hm'); if (!el) return;
+  el.innerHTML = heatHtml(Array.from({length: 7}, () => Array(24).fill('na')), '', null, '未接入 · 快照中无 heat 节（git 数据未采集）');
 }
 
 function renderAll(){ renderStats(); renderFeed(); if (hoverHub >= 0) showTip(); }
@@ -1132,12 +1149,13 @@ setInterval(() => {
    三态（口径见 docs/specs/调度中心-数据同步设计.md 第 5 节）：
    无快照（含 file://）= 演示，保留模拟数据；快照有 tokens 节 = 同步真数据；
    快照无 tokens 节 = 未接入，数值全 '—'。字段 null = 未采集，同样 '—'。
-   多项目各一份快照（data/<id>.json）；「设置」浮层里勾选统计范围（「复制采集命令」粘终端跑一次），点项目名切换大屏显示。 */
+   多项目各一份快照（data/<id>.json）；「设置」浮层里直接添加项目目录（可多个，「复制采集命令」粘终端跑一次），点项目名切换大屏显示。 */
 const projPop = $('#projPop'), projList = projPop.querySelector('.pp-list'), projCopy = $('#projCopy');
+const projPath = $('#projPath'), projAdd = $('#projAdd');
 const monFoot = mon.querySelector('.pf'), monTpsFoot = [...mon.querySelectorAll('.tps-foot span')];
 const monReqN = [...mon.querySelectorAll('.view[data-v="1"] .tile .n')], monReqRate = [...mon.querySelectorAll('.view[data-v="1"] .kv b')];
 const monReqBar = mon.querySelector('.view[data-v="1"] .bar i'), monUse = [...mon.querySelectorAll('.view[data-v="2"] .use-row b')];
-let tokMode = 'demo', tokSnaps = [], tokCands = [];
+let tokMode = 'demo', tokSnaps = [], tokDirs = [];
 function nv(el, text, na){ el.textContent = text; el.classList.toggle('na', !!na); }
 function kfmt(n){ return n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
 function paintTokens(tk){
@@ -1167,30 +1185,26 @@ function curSnap(){
   try { id = localStorage.getItem('ops-proj'); } catch (e) { /* 隐私模式等拿不到 storage */ }
   return tokSnaps.find(s => (s.project || {}).id === id) || [...tokSnaps].sort(bySync)[0];
 }
-function loadCollect(){
-  try { return JSON.parse(localStorage.getItem('ops-collect') || 'null'); } catch (e) { return null; }
-}
+function saveDirs(){ try { localStorage.setItem('ops-dirs', JSON.stringify(tokDirs)); } catch (e) { /* 拿不到 storage 就只本次生效 */ } }
+try { tokDirs = JSON.parse(localStorage.getItem('ops-dirs') || '[]') || []; } catch (e) { tokDirs = []; }
 function renderProjList(){
   const byPath = {};
   tokSnaps.forEach(s => { const p = s.project || {}; if (p.path) byPath[p.path] = s; });
-  const rows = tokCands.map(c => ({ name: c.name, path: c.path, snap: byPath[c.path] || null }));
-  tokSnaps.forEach(s => {   // 有快照但候选清单里没有的（换机器残留等）也列出
-    const p = s.project || {};
-    if (p.path && !tokCands.some(c => c.path === p.path)) rows.push({ name: p.name, path: p.path, snap: s });
-  });
-  if (!rows.length) {
-    projList.innerHTML = '<div class="pp-item na">暂无项目 · 先在终端跑 py tools/collect_tokens.py --scan</div>';
+  const paths = [...tokDirs];
+  tokSnaps.forEach(s => { const p = s.project || {}; if (p.path && !paths.includes(p.path)) paths.push(p.path); });
+  if (!paths.length) {
+    projList.innerHTML = '<div class="pp-item na">暂无项目 · 在上方输入项目目录路径添加（可多个）</div>';
     return;
   }
-  const checked = loadCollect();
   const cur = curSnap(), curId = cur && cur.project ? cur.project.id : null;
-  projList.innerHTML = rows.map(r => {
-    const p = (r.snap || {}).project || {}, t = (r.snap || {}).tokens || {}, rq = t.requests || {};
-    const on = checked ? checked.includes(r.path) : !!r.snap;
-    const status = t.lastSync ? '今日请求 ' + (rq.total == null ? '—' : rq.total) + ' · ' + t.lastSync : '未采集 · 勾选后复制采集命令';
+  projList.innerHTML = paths.map(path => {
+    const s = byPath[path] || null, p = (s || {}).project || {}, t = (s || {}).tokens || {}, rq = t.requests || {};
+    const name = p.name || path.split(/[\\/]/).filter(Boolean).pop() || path;
+    const status = t.lastSync ? '今日请求 ' + (rq.total == null ? '—' : rq.total) + ' · ' + t.lastSync : '未采集 · 复制采集命令后跑';
+    const x = tokDirs.includes(path) ? `<button class="pp-x" data-path="${path}" title="移除">✕</button>` : '';
     return `<div class="pp-item${p.id && p.id === curId ? ' on' : ''}" data-id="${p.id || ''}">`
-      + `<label><input type="checkbox" data-path="${r.path}"${on ? ' checked' : ''}><b>${r.name || p.name || '?'}</b></label>`
-      + `<span>${r.path || ''}</span><span>${status}</span></div>`;
+      + `<div class="pp-top"><b>${name}</b>${x}</div>`
+      + `<span>${path}</span><span>${status}</span></div>`;
   }).join('');
 }
 function applySel(){
@@ -1198,27 +1212,37 @@ function applySel(){
   if (!s) { renderProjList(); return; }
   tokMode = 'live';
   paintTokens(s.tokens);
+  if (s.heat) paintHeatReal(s.heat); else paintHeatNa();
   monFoot.textContent = '数据同步 · ' + ((s.project || {}).name || '?') + ' · lastSync ' + (s.tokens.lastSync || '—') + ' · 每 60 秒刷新';
   renderProjList();
 }
 projList.addEventListener('click', e => {
-  if (e.target.closest('label')) return;   // 点勾选框只改统计范围，不切换大屏项目
+  const x = e.target.closest('.pp-x');
+  if (x) {
+    tokDirs = tokDirs.filter(p => p !== x.dataset.path);
+    saveDirs();
+    renderProjList();
+    return;
+  }
   const it = e.target.closest('.pp-item[data-id]');
   if (!it || !it.dataset.id) return;
   try { localStorage.setItem('ops-proj', it.dataset.id); } catch (err) { /* 拿不到 storage 就只本次生效 */ }
   applySel();
   projPop.hidden = true;
 });
-projList.addEventListener('change', e => {
-  if (e.target.type !== 'checkbox') return;
-  const paths = [...projList.querySelectorAll('input[type=checkbox]:checked')].map(b => b.dataset.path);
-  try { localStorage.setItem('ops-collect', JSON.stringify(paths)); } catch (err) { /* 拿不到 storage 就只本次生效 */ }
-});
+function addDirs(raw){
+  raw.split(/[;；]/).map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+    .forEach(p => { if (!tokDirs.includes(p)) tokDirs.push(p); });
+  saveDirs();
+  renderProjList();
+  projPath.value = '';
+}
+projAdd.addEventListener('click', () => addDirs(projPath.value));
+projPath.addEventListener('keydown', e => { if (e.key === 'Enter') addDirs(projPath.value); });
 projCopy.addEventListener('click', () => {
-  const paths = [...projList.querySelectorAll('input[type=checkbox]:checked')].map(b => b.dataset.path);
   const flash = txt => { projCopy.textContent = txt; setTimeout(() => { projCopy.textContent = '复制采集命令'; }, 2000); };
-  if (!paths.length) { flash('先勾选项目'); return; }
-  const cmd = 'py tools/collect_tokens.py' + paths.map(p => ` --project-dir "${p}"`).join('');
+  if (!tokDirs.length) { flash('先添加项目目录'); return; }
+  const cmd = 'py tools/collect_tokens.py' + tokDirs.map(p => ` --project-dir "${p}"`).join('');
   const done = () => flash('已复制 · 粘到终端跑一次');
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(cmd).then(done).catch(() => window.prompt('手动复制这条命令', cmd));
   else window.prompt('手动复制这条命令', cmd);
@@ -1236,13 +1260,13 @@ async function syncTokens(){
       .map(m => m[1].split('/').pop()).filter(n => n && !n.startsWith('_'));
     snaps = (await Promise.all(names.map(n => fetch('data/' + n)
       .then(r => r.ok ? r.json() : null).catch(() => null)))).filter(Boolean);
-    tokCands = await fetch('data/_candidates.json').then(r => r.ok ? r.json() : []).catch(() => []);
   } catch (e) { return; }   // file:// 或无 data/：保持演示（模拟数据）
   tokSnaps = snaps.filter(s => s.tokens);
   if (tokSnaps.length) { applySel(); }
   else if (snaps.length) {
     tokMode = 'none';
     paintTokens({});
+    paintHeatNa();
     monFoot.textContent = '未接入 · 快照中无 tokens 节 · 缺数据如实显示';
     renderProjList();
   } else { renderProjList(); }
