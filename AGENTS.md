@@ -64,7 +64,7 @@ agent-display/
 | `step()`（900ms）/ `renderAll()` | 模拟推进 / 面板刷新 |
 | `layoutStage()` / `drawStage(t, dt)` | Canvas 舞台（数据飞轮）布局与绘制 |
 | `monShow()` / `tpsPaint()` | 任务 / token 监控面板（3 标签、点击与 10s 自动轮换、吞吐滚动图） |
-| `syncTokens()` / `paintTokens()` | 数据同步：扫 `data/*.json` 快照 → mon 面板三态（无快照=演示 / 有 tokens 节=同步 / 无 tokens 节=未接入），60s 轮询，缺失字段「—」灰显 |
+| `syncTokens()` / `paintTokens()` / `renderProjList()` | 数据同步：扫 `data/*.json` 快照 → mon 面板三态（无快照=演示 / 有 tokens 节=同步 / 无 tokens 节=未接入），60s 轮询，缺失字段「—」灰显；「设置」按钮（`#proj` / `#projPop`）选项目，选择记 localStorage |
 | `actTick()` / `renderAct()` | 最近动态面板（决策/日报/问题逐条打字滚动） |
 | 外壳 IIFE（文件末尾） | `attachShadow` → 克隆 `tpl-ops` → 调用 `mountOps`。**只挂载这一款看板，不要往里加切换逻辑** |
 
@@ -72,7 +72,7 @@ agent-display/
 
 1. **保持单文件**。不引入构建工具、打包器、框架、npm 依赖。代码再长也不拆文件（交付形态就是单 HTML）。
 2. **样式隔离**。看板样式写在 `<template>` 内的 `<style>` 里，用 `:host` / `:host([data-theme=...])` 代替 `:root`；JS 里用 `SR.querySelector` 查询元素。禁止把主题样式写到外壳 style。
-3. **id 同步**。JS 引用的元素 id（`$('#xx')` / `getElementById`）与模板内 `id="xx"` 必须一一对应，当前共 20 个。增删 id 时两边同步改，并跑一遍「验证清单」第 1 条。
+3. **id 同步**。JS 引用的元素 id（`$('#xx')` / `getElementById`）与模板内 `id="xx"` 必须一一对应，当前共 22 个。增删 id 时两边同步改，并跑一遍「验证清单」第 1 条。
 4. **外部依赖只允许 Google Fonts**（Archivo / JetBrains Mono / Noto Sans SC / Michroma）。不新增 CDN 脚本、不引入第三方库；字体加载失败时须能回退系统字体正常显示。
 5. **示例数据**。所有数字由模拟器生成，页面保留「示例数据」标注；不要接真实接口、不要写入任何密钥或真实业务数据。
 6. **文案风格**：中文为主，指标 / 按钮 / 标签保留英文大写风格（TASKS、AGENTS、OUTPUTS…）；数字带单位与千分位。

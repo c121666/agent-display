@@ -13,6 +13,7 @@
 用法：py tools/collect_tokens.py [--project-dir DIR] [--out DIR] [--id ID] [--name NAME]
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -162,19 +163,20 @@ SOURCES = [
 ]
 
 
-def collect(project_dir):
-    """扫所有日志源，返回属于 project_dir 的请求记录列表。"""
+def collect(project_dir=None):
+    """扫所有日志源；project_dir 只留属于它的记录，None = 全部项目（记录带 cwd，供分组）。"""
     records = []
     for _name, parser, roots in SOURCES:
         files = [p for root in roots if root.is_dir() for p in root.rglob("*.jsonl")]
         for f in files:
             cwd = file_cwd(f)
-            if not cwd or not same_dir(cwd, project_dir):
+            if not cwd or (project_dir and not same_dir(cwd, project_dir)):
                 continue
             try:
                 recs = list(parser(f))
                 for r in recs:
                     r["src"] = str(f)   # 供「当前聊天框」按会话文件聚合
+                    r["cwd"] = str(Path(cwd).resolve())
                 records.extend(recs)
             except OSError as e:
                 print(f"[warn] 读不动 {f}: {e}", file=sys.stderr)
@@ -222,13 +224,12 @@ def rollup(records, project, now):
         sess = [r for r in records if r.get("src") == last.get("src")]
         ses = {"input": s(sess, "input"), "output": s(sess, "output"), "cacheRead": s(sess, "cacheRead")}
 
-    # 当天消耗；cost 只有 pi 有 → 当日记录不全带 cost 时置 null（未采集），不显示半截账
-    cost = s(day, "cost") if day and all(r["cost"] is not None for r in day) else None
+    # 当天消耗：今日无记录 = 真实 0（不是 null）；cost 只有 pi 有，当日记录不全带 cost 时置 null（未采集），不显示半截账
     today_block = {
-        "input": s(day, "input") if day else None,
-        "output": s(day, "output") if day else None,
-        "cacheRead": s(day, "cacheRead") if day else None,
-        "cost": cost,
+        "input": s(day, "input"),
+        "output": s(day, "output"),
+        "cacheRead": s(day, "cacheRead"),
+        "cost": s(day, "cost") if all(r["cost"] is not None for r in day) else None,
     }
 
     # 配额：codex rate_limits 最新一条 / 每（limit_id, 档位）
@@ -260,37 +261,24 @@ def rollup(records, project, now):
     }
 
 
-def main():
-    ap = argparse.ArgumentParser(description="采集会话日志并写 data/<id>.json 快照")
-    ap.add_argument("--project-dir", default=".", help="项目目录（只扫 cwd 属于它的会话）")
-    ap.add_argument("--out", default="data", help="快照输出目录（默认 data/）")
-    ap.add_argument("--id", default=None, help="project.id / 文件名（默认取项目目录名）")
-    ap.add_argument("--name", default=None, help="project.name（默认同 id）")
-    args = ap.parse_args()
-
-    pdir = Path(args.project_dir).resolve()
-    pid = args.id or re.sub(r"[^a-z0-9]+", "-", pdir.name.lower()).strip("-")
-    name = args.name or pdir.name
-    stack = ["html"] if (pdir / "index.html").exists() else []
-    if (pdir / "package.json").exists():
+def write_snap(out, now, cwd, recs, pid=None, name=None):
+    """一个项目一份快照：rollup → 原子写 data/<pid>.json。"""
+    d = Path(cwd)
+    pid = pid or re.sub(r"[^a-z0-9]+", "-", d.name.lower()).strip("-") or "project"
+    stack = ["html"] if (d / "index.html").exists() else []
+    if (d / "package.json").exists():
         try:
-            stack = list((json.loads((pdir / "package.json").read_text(encoding="utf-8")).get("dependencies") or {}).keys())[:8]
+            stack = list((json.loads((d / "package.json").read_text(encoding="utf-8")).get("dependencies") or {}).keys())[:8]
         except (json.JSONDecodeError, OSError):
             pass
-
-    now = datetime.now().astimezone()
-    records = collect(pdir)
-    snap = rollup(records, {
+    snap = rollup(recs, {
         "id": pid,
-        "name": name,
-        "path": str(pdir),
+        "name": name or d.name,
+        "path": str(d),
         "stack": stack,
         "updatedAt": iso(now),
         "collector": "tool:collect_tokens@agent-display",
     }, now)
-
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
     tmp = out / f"{pid}.json.tmp"
     final = out / f"{pid}.json"
     tmp.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -298,6 +286,41 @@ def main():
     t = snap["tokens"]
     print(f"[ok] {final}  请求(今日) {t['requests']['total']} 条 · 今日 input/output "
           f"{t['today']['input']}/{t['today']['output']} · lastSync {t['lastSync']}")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="采集会话日志并写 data/<id>.json 快照")
+    ap.add_argument("--project-dir", default=".", help="项目目录（只扫 cwd 属于它的会话）")
+    ap.add_argument("--all", action="store_true", help="扫全部项目，每项目一份快照（看板「设置」里可选项目）")
+    ap.add_argument("--out", default="data", help="快照输出目录（默认 data/）")
+    ap.add_argument("--id", default=None, help="project.id / 文件名（默认取项目目录名；仅单项目模式）")
+    ap.add_argument("--name", default=None, help="project.name（默认取目录名；仅单项目模式）")
+    args = ap.parse_args()
+
+    now = datetime.now().astimezone()
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    if not args.all:
+        pdir = Path(args.project_dir).resolve()
+        write_snap(out, now, str(pdir), collect(pdir), args.id, args.name)
+        return
+
+    groups = {}
+    for r in collect(None):
+        groups.setdefault(r["cwd"], []).append(r)
+    if not groups:
+        print("[warn] 没扫到任何会话记录", file=sys.stderr)
+    ids = {}
+    for cwd in groups:
+        ids[cwd] = re.sub(r"[^a-z0-9]+", "-", Path(cwd).name.lower()).strip("-") or "project"
+    for pid in set(ids.values()):  # 同名不同路径：加路径短哈希区分
+        cwds = [c for c, p in ids.items() if p == pid]
+        if len(cwds) > 1:
+            for c in cwds:
+                ids[c] = f"{pid}-{hashlib.md5(c.encode('utf-8')).hexdigest()[:6]}"
+    for cwd, recs in sorted(groups.items()):
+        write_snap(out, now, cwd, recs, ids[cwd])
 
 
 if __name__ == "__main__":
