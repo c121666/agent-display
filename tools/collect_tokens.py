@@ -172,9 +172,7 @@ SOURCES = [
 
 
 def git_data(path):
-    """项目目录的 git 提交数据，只碰 path 下的仓库：
-    repos[] = 近 90 天每日提交数与行数增减（契约 6.10）；
-    heat = 提交按「星期 × 小时」分桶（近 90 天，本地时区），供热力图「按时段」视图。"""
+    """项目目录的 git 提交数据（契约 repos[] 节）：近 90 天每日提交数与行数增减。只碰 path 下的仓库。"""
     def run(root, *args):
         r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
         return r.stdout.strip() if r.returncode == 0 else None
@@ -188,7 +186,6 @@ def git_data(path):
             roots = []
 
     repos = []
-    heat_m = [[0] * 24 for _ in range(7)]   # [星期(周一=0)][小时]
     for root in roots:
         log = run(root, "log", "--since=90.days.ago", "--date=iso-local", "--pretty=format:%ad", "--numstat")
         if log is None:
@@ -200,7 +197,6 @@ def git_data(path):
                 cur = line[:10]
                 d = daily.setdefault(cur, {"date": cur, "commits": 0, "additions": 0, "deletions": 0})
                 d["commits"] += 1
-                heat_m[datetime.fromisoformat(cur).weekday()][int(line[11:13])] += 1
             elif cur and "\t" in line:
                 a, dl, _rest = line.split("\t", 2)
                 d = daily[cur]
@@ -218,21 +214,7 @@ def git_data(path):
             "linesToday": (td.get("additions", 0) - td.get("deletions", 0)) if td else 0,
             "daily": sorted(daily.values(), key=lambda x: x["date"]),
         })
-
-    heat = None
-    if repos:
-        bw = bh = mx = 0
-        for w in range(7):
-            for h in range(24):
-                if heat_m[w][h] > mx:
-                    mx, bw, bh = heat_m[w][h], w, h
-        off = datetime.now().astimezone().strftime("%z")
-        heat = {
-            "tz": f"UTC{off[:3]}:{off[3:]}" if off else "UTC",
-            "byHour": heat_m,
-            "busiest": {"weekday": bw, "hour": bh} if mx else None,
-        }
-    return repos, heat
+    return repos
 
 
 def collect(project_dirs):
@@ -297,11 +279,15 @@ def rollup(records, project, now):
         ses = {"input": s(sess, "input"), "output": s(sess, "output"), "cacheRead": s(sess, "cacheRead")}
 
     # 当天消耗：今日无记录 = 真实 0（不是 null）；cost 只有 pi 有，当日记录不全带 cost 时置 null（未采集），不显示半截账
+    by_hour = [0] * 24   # 当天各小时的消耗 token（输入+输出），柱状图取工作时段 8 根
+    for r in day:
+        by_hour[r["ts"].hour] += r["input"] + r["output"]
     today_block = {
         "input": s(day, "input"),
         "output": s(day, "output"),
         "cacheRead": s(day, "cacheRead"),
         "cost": s(day, "cost") if all(r["cost"] is not None for r in day) else None,
+        "byHour": by_hour,
     }
 
     # 配额：codex rate_limits 最新一条 / 每（limit_id, 档位）
@@ -351,10 +337,9 @@ def write_snap(out, now, cwd, recs, pid=None, name=None):
         "updatedAt": iso(now),
         "collector": "tool:collect_tokens@agent-display",
     }, now)
-    repos, heat = git_data(d)
+    repos = git_data(d)
     if repos:   # 不是 git 仓库就省略整节（= 未接入，契约缺失态口径）
         snap["repos"] = repos
-        snap["heat"] = heat
     tmp = out / f"{pid}.json.tmp"
     final = out / f"{pid}.json"
     tmp.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")

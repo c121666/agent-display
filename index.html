@@ -220,7 +220,7 @@ body{background:var(--page);overflow:hidden}
 .hname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center;font-family:var(--cjk)}
 .hcells{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;min-width:0}
 .hm-x{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;color:var(--mute);font-size:7px}
-.hm-x .hlab{display:grid;grid-template-columns:repeat(4,1fr)}
+.hm-x .hlab{display:flex;justify-content:space-between}
 .hm .c{aspect-ratio:1;border:1px solid var(--hair2)}
 .hm .c.l1{background:color-mix(in srgb,var(--ink) 15%,transparent);border-color:transparent}
 .hm .c.l2{background:color-mix(in srgb,var(--ink) 36%,transparent);border-color:transparent}
@@ -315,6 +315,13 @@ body{background:var(--page);overflow:hidden}
 .use-row{display:flex;justify-content:space-between;font-size:8px;color:var(--ink2);line-height:1.9}
 .use-row b{color:var(--ink);font-weight:700}
 .use-big{font-size:14px;font-weight:800}
+.ubars{display:flex;align-items:flex-end;gap:3px;height:32px}
+.ubars i{flex:1;min-height:2px;background:repeating-linear-gradient(0deg,var(--ink) 0 2px,transparent 2px 4px)}
+.ubars i.zero{background:var(--hair2)}
+.ulab{display:flex;gap:3px;color:var(--mute);font-size:6.5px}
+.ulab span{flex:1;text-align:center}
+.usum{display:flex;justify-content:space-between;font-size:7.5px;color:var(--mute);font-family:var(--cjk)}
+.usum b{color:var(--ink);font-weight:700}
 .na{opacity:.45}   /* 缺失态：未采集 / 未接入一律灰显 '—'，禁补 0（数据契约第 4 节） */
 
 .code{margin:0;height:100%;font-size:9.5px;line-height:13px;overflow:hidden}
@@ -400,7 +407,7 @@ body{background:var(--page);overflow:hidden}
       <div class="pb">
         <div class="view on" data-v="0">
           <div class="hm" id="hm"></div>
-          <div class="vfoot">git 提交次数 × 星期 × 小时 · 近 90 天 · <b>缺数据如实显示</b></div>
+          <div class="vfoot">git 提交次数 × 近 60 天（工作日）· 周一~周五固定 5 排 · <b>缺数据如实显示</b></div>
         </div>
         <div class="view" data-v="1">
           <div class="task-name">feat/heat-pairing · 活动热力图行成对</div>
@@ -474,12 +481,15 @@ body{background:var(--page);overflow:hidden}
         </div>
         <div class="view" data-v="2">
           <div class="use-block">
-            <h4>当前聊天框 · TOKEN</h4>
-            <div class="use-row"><span>输入 / 输出</span><b>12.4k / 8.1k</b></div>
-            <div class="use-row"><span>合计</span><b class="use-big">20.5k</b></div>
+            <h4>当天消耗 · BY HOUR</h4>
+            <div class="ubars">
+              <i style="height:10px"></i><i style="height:18px"></i><i style="height:26px"></i><i style="height:14px"></i><i style="height:22px"></i><i style="height:30px"></i><i style="height:16px"></i><i style="height:8px"></i>
+            </div>
+            <div class="ulab"><span>08</span><span>09</span><span>10</span><span>11</span><span>14</span><span>15</span><span>16</span><span>17</span></div>
+            <div class="usum"><span>当天消耗合计</span><b>278k</b></div>
           </div>
           <div class="use-block">
-            <h4>当天消耗 · TODAY</h4>
+            <h4>当天明细 · TODAY</h4>
             <div class="use-row"><span>输入 / 输出</span><b>186k / 92k</b></div>
             <div class="use-row"><span>合计 · 缓存命中</span><b>278k · 63%</b></div>
           </div>
@@ -631,52 +641,61 @@ function renderFeed(){
   const n = Math.max(4, Math.floor(feedEl.clientHeight / 13.5));
   feedEl.innerHTML = feed.slice(-n).map(e => `<li><span class="n">${String(e.n).padStart(3, '0')}</span><span class="vb">${e.verb}</span><span class="d">${e.text}</span></li>`).join('');
 }
-/* ===== 活动热力图（2026-10-22 改「按时段」视图，用户定稿）：星期（周一~周日，行固定 7 排）× 小时（0-23） =====
-   数据语义：git 提交次数按「星期 × 小时」分桶（近 90 天，本地时区）；色阶 = 提交数分档 1/3/6/10，共 5 档（含空格）。
-   不分前后端、不按仓库分行（旧「行成对 / 前后端 ≤2 对」规则废除）；无提交的格 = 真实 0（空格），未采集 = 虚线格。 */
-const HEAT_DOW = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+/* ===== 活动热力图（2026-10-22 改「近 60 天」日期视图）：行 = 周一~周五（固定 5 排，周六周日不显示） =====
+   列 = 近 60 天里的工作日（左旧 → 右新），每根日期列落在它所属星期的行上；色阶 = 当日提交数分档 1/3/6/10。
+   数据源：快照 repos[].daily 按日期合计提交数；无提交 = 真实 0（浅空格），未采集 = 虚线格。 */
+const HEAT_DOW = ['周一', '周二', '周三', '周四', '周五'];
 const HEAT_LV = n => n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n >= 1 ? 1 : 0;
-function heatHtml(byHour, tz, busiest, note){
-  const cell = x => `<span class="c${x === 'na' ? ' na' : x ? ' l' + x : ''}"></span>`;
-  const rows = byHour.map((row, w) =>
-    `<div class="hrow"><div class="hname">${HEAT_DOW[w]}</div><div class="hcells">${row.map(v => cell(v === 'na' ? 'na' : HEAT_LV(v))).join('')}</div></div>`).join('');
-  let busy = note;
-  if (!busy && busiest) busy = `最忙: ${HEAT_DOW[busiest.weekday]} ${String(busiest.hour).padStart(2, '0')}:00`;
-  if (!busy) {   // 没给 busiest 就自己找峰值格
-    let bw = 0, bh = 0, mx = 0;
-    byHour.forEach((row, w) => row.forEach((v, h) => { if (typeof v === 'number' && v > mx) { mx = v; bw = w; bh = h; } }));
-    busy = mx > 0 ? `最忙: ${HEAT_DOW[bw]} ${String(bh).padStart(2, '0')}:00` : '最忙: —';
+function heatDates(){
+  const out = [];
+  for (let i = 59; i >= 0; i--){
+    const d = new Date(Date.now() - i * 864e5);
+    const w = (d.getDay() + 6) % 7;   // 周一 = 0
+    if (w > 4) continue;              // 周六周日去掉
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    out.push({ iso, w, label: `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')}` });
   }
-  return `<div class="hm-head"><b>按时段</b><span>${tz || ''}</span></div>` + rows
-    + `<div class="hm-x"><div></div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span></div></div>`
+  return out;
+}
+function heatHtml(byDate, note){   // byDate: {"YYYY-MM-DD": 提交数} 或 'na'
+  const days = heatDates(), n = days.length;
+  const cell = x => `<span class="c${x === 'na' ? ' na' : x ? ' l' + x : ''}"></span>`;
+  const rows = HEAT_DOW.map((name, w) =>
+    `<div class="hrow"><div class="hname">${name}</div><div class="hcells" style="grid-template-columns:repeat(${n},minmax(0,1fr))">` +
+    days.map(d => cell(d.w === w ? (byDate === 'na' ? 'na' : HEAT_LV(byDate[d.iso] || 0)) : '')).join('') +
+    `</div></div>`).join('');
+  let busy = note;
+  if (!busy){
+    let bd = null, mx = 0;
+    days.forEach(d => { const v = byDate[d.iso] || 0; if (v > mx) { mx = v; bd = d; } });
+    busy = bd ? `最忙: ${bd.label} · ${mx} 次提交` : '最忙: —';
+  }
+  const ticks = [days[0], days[Math.floor(n / 3)], days[Math.floor(n * 2 / 3)], days[n - 1]].map(d => `<span>${d.label}</span>`).join('');
+  return `<div class="hm-head"><b>近 60 天</b><span>${days[0].label} ~ ${days[n - 1].label}</span></div>` + rows
+    + `<div class="hm-x"><div></div><div class="hlab">${ticks}</div></div>`
     + `<div class="hleg"><span>${busy}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
 }
-function renderHeat(){   // 示例数据：工作时段重、周末轻，形态贴近真实作息
+function renderHeat(){   // 示例数据：工作日多、周五轻，形态贴近真实作息
   const el = $('#hm'); if (!el) return;
-  const m = [];
-  for (let w = 0; w < 7; w++){
-    const row = [];
-    for (let h = 0; h < 24; h++){
-      const base = w >= 5 ? 2 : 8;
-      const work = h >= 9 && h <= 21 ? base : 1;
-      const x = Math.abs(Math.sin((w + 1) * 37.7 + h * 12.9)) % 1;
-      row.push(x > .78 ? Math.round(work * 1.6) : x > .5 ? work : x > .28 ? Math.round(work * 0.4) : 0);
-    }
-    m.push(row);
-  }
-  el.innerHTML = heatHtml(m, 'Asia/Shanghai', null, '示例数据');
+  const byDate = {};
+  heatDates().forEach((d, i) => {
+    const x = Math.abs(Math.sin((i + 1) * 37.7 + d.w * 12.9)) % 1;
+    const base = d.w === 4 ? 3 : 9;
+    byDate[d.iso] = x > .78 ? Math.round(base * 1.5) : x > .5 ? base : x > .3 ? Math.round(base * 0.4) : 0;
+  });
+  el.innerHTML = heatHtml(byDate, '示例数据');
 }
 
-/* 热力图数据源切换：快照有 heat 节 = 真数据（git 星期×小时分桶）；无 heat 节 = 未接入；无快照 = 示例数据。 */
-function paintHeatReal(heat){
+/* 热力图数据源切换：快照有 repos 节 = 真数据（git 按日提交数合计）；无 repos 节 = 未接入；无快照 = 示例数据。 */
+function paintHeatReal(repos){
   const el = $('#hm'); if (!el) return;
-  const m = heat && heat.byHour;
-  if (!Array.isArray(m) || m.length !== 7 || m.some(r => !Array.isArray(r) || r.length !== 24)) { paintHeatNa(); return; }
-  el.innerHTML = heatHtml(m, heat.tz, heat.busiest, null);
+  const byDate = {};
+  repos.forEach(r => (r.daily || []).forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.commits; }));
+  el.innerHTML = heatHtml(byDate, null);
 }
 function paintHeatNa(){
   const el = $('#hm'); if (!el) return;
-  el.innerHTML = heatHtml(Array.from({length: 7}, () => Array(24).fill('na')), '', null, '未接入 · 快照中无 heat 节（git 数据未采集）');
+  el.innerHTML = heatHtml('na', '未接入 · 快照中无 repos 节（git 数据未采集）');
 }
 
 function renderAll(){ renderStats(); renderFeed(); if (hoverHub >= 0) showTip(); }
@@ -1155,11 +1174,12 @@ const projPath = $('#projPath'), projAdd = $('#projAdd');
 const monFoot = mon.querySelector('.pf'), monTpsFoot = [...mon.querySelectorAll('.tps-foot span')];
 const monReqN = [...mon.querySelectorAll('.view[data-v="1"] .tile .n')], monReqRate = [...mon.querySelectorAll('.view[data-v="1"] .kv b')];
 const monReqBar = mon.querySelector('.view[data-v="1"] .bar i'), monUse = [...mon.querySelectorAll('.view[data-v="2"] .use-row b')];
+const monBars = [...mon.querySelectorAll('.view[data-v="2"] .ubars i')], monSum = mon.querySelector('.view[data-v="2"] .usum b');
 let tokMode = 'demo', tokSnaps = [], tokDirs = [];
 function nv(el, text, na){ el.textContent = text; el.classList.toggle('na', !!na); }
 function kfmt(n){ return n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
 function paintTokens(tk){
-  const tps = tk.tps || {}, req = tk.requests || {}, ses = tk.session || {}, tod = tk.today || {};
+  const tps = tk.tps || {}, req = tk.requests || {}, tod = tk.today || {};
   nv(tpsNum, tps.now == null ? '—' : String(tps.now), tps.now == null);
   const series = (tps.series || []).slice(-26);
   tpsBars.innerHTML = series.map(v => `<i style="height:${Math.min(96, 14 + v * 0.3)}px" class="${v < 60 ? 'low' : ''}"></i>`).join('');
@@ -1170,14 +1190,24 @@ function paintTokens(tk){
   nv(monReqRate[0], req.cacheHitRate == null ? '—' : Math.round(req.cacheHitRate * 100) + '%', req.cacheHitRate == null);
   nv(monReqRate[1], req.successRateToday == null ? '—' : (req.successRateToday * 100).toFixed(1) + '%', req.successRateToday == null);
   monReqBar.style.width = req.cacheHitRate == null ? '0' : Math.round(req.cacheHitRate * 100) + '%';
+  // 当天消耗柱状图：8 根工作时段柱（08/09/10/11/14/15/16/17 点，12-14 午休不计）；byHour = 当天 24 小时消耗（输入+输出）
+  const HOURS = [8, 9, 10, 11, 14, 15, 16, 17];
+  const bh = tod.byHour || [];
+  const vals = HOURS.map(h => bh[h] == null ? null : bh[h]);
+  const mx = Math.max(1, ...vals.filter(v => v != null));
+  monBars.forEach((el, i) => {
+    const v = vals[i];
+    el.style.height = v == null ? '2px' : Math.max(2, Math.round(v / mx * 32)) + 'px';
+    el.classList.toggle('zero', !v);
+    el.title = (v == null ? '未采集' : HOURS[i] + ':00 · ' + kfmt(v));
+  });
   // 合计 = 输入 + 输出（输入已含缓存，采集器口径见 collect_tokens.py）
   const inOut = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input) + ' / ' + kfmt(b.output);
   const sum = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input + b.output);
-  nv(monUse[0], inOut(ses), ses.input == null || ses.output == null);
-  nv(monUse[1], sum(ses), ses.input == null || ses.output == null);
-  nv(monUse[2], inOut(tod), tod.input == null || tod.output == null);
+  nv(monSum, sum(tod), tod.input == null || tod.output == null);
+  nv(monUse[0], inOut(tod), tod.input == null || tod.output == null);
   const hit = (tod.input && tod.cacheRead != null) ? ' · ' + Math.round(tod.cacheRead / tod.input * 100) + '%' : ' · —';
-  nv(monUse[3], sum(tod) + hit, tod.input == null || tod.output == null);
+  nv(monUse[1], sum(tod) + hit, tod.input == null || tod.output == null);
 }
 function bySync(a, b){ return String(b.tokens.lastSync || '').localeCompare(String(a.tokens.lastSync || '')); }
 function curSnap(){
@@ -1212,7 +1242,7 @@ function applySel(){
   if (!s) { renderProjList(); return; }
   tokMode = 'live';
   paintTokens(s.tokens);
-  if (s.heat) paintHeatReal(s.heat); else paintHeatNa();
+  if (s.repos && s.repos.length) paintHeatReal(s.repos); else paintHeatNa();
   monFoot.textContent = '数据同步 · ' + ((s.project || {}).name || '?') + ' · lastSync ' + (s.tokens.lastSync || '—') + ' · 每 60 秒刷新';
   renderProjList();
 }

@@ -61,7 +61,10 @@ def check_tokens(tok, errors):
                 err(f"tokens.{k}: 必须是对象", errors)
             else:
                 for f, v in b.items():
-                    if not is_num_or_null(v):
+                    if f == "byHour":
+                        if not isinstance(v, list) or len(v) != 24 or any(not is_num_or_null(x) for x in v):
+                            err(f"tokens.{k}.byHour: 必须是 24 个数字（当天各小时消耗）", errors)
+                    elif not is_num_or_null(v):
                         err(f"tokens.{k}.{f}: 必须是数字或 null", errors)
     if "quota" in tok:
         if not isinstance(tok["quota"], list):
@@ -96,20 +99,6 @@ def check_repos(repos, errors):
                 err(f"repos[{i}].daily[{j}]: 必须是含 date/commits/additions/deletions 的对象", errors)
 
 
-def check_heat(heat, errors):
-    """heat 节（设计文档 4 节）：提交按星期×小时分桶，供热力图「按时段」视图。"""
-    if not isinstance(heat, dict):
-        return err("heat: 必须是对象", errors)
-    m = heat.get("byHour")
-    bad = not isinstance(m, list) or len(m) != 7 or any(
-        not isinstance(r, list) or len(r) != 24 or any(not isinstance(v, int) for v in r) for r in m)
-    if bad:
-        err("heat.byHour: 必须是 7×24 整数矩阵（周一~周日 × 0-23 时）", errors)
-    b = heat.get("busiest")
-    if b is not None and (not isinstance(b, dict) or not isinstance(b.get("weekday"), int) or not isinstance(b.get("hour"), int)):
-        err("heat.busiest: 必须是 {weekday, hour} 或 null", errors)
-
-
 def check_file(path):
     errors = []
     try:
@@ -142,8 +131,6 @@ def check_file(path):
         check_tokens(d["tokens"], errors)
     if "repos" in d:
         check_repos(d["repos"], errors)
-    if "heat" in d:
-        check_heat(d["heat"], errors)
     return errors
 
 

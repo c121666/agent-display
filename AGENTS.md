@@ -65,7 +65,7 @@ agent-display/
 | `layoutStage()` / `drawStage(t, dt)` | Canvas 舞台（数据飞轮）布局与绘制 |
 | `monShow()` / `tpsPaint()` | 任务 / token 监控面板（3 标签、点击与 10s 自动轮换、吞吐滚动图） |
 | `syncTokens()` / `paintTokens()` / `renderProjList()` | 数据同步：扫 `data/*.json` 快照 → mon 面板三态（无快照=演示 / 有 tokens 节=同步 / 无 tokens 节=未接入），60s 轮询，缺失字段「—」灰显；「设置」浮层（`#proj` / `#projPop` / `#projPath` / `#projAdd` / `#projCopy`）直接添加项目目录（可多个）+ 复制采集命令、点项目名切换显示（记 localStorage） |
-| `heatHtml()` / `paintHeatReal()` | 活跃热力图「按时段」视图（星期 × 小时 7×24 固定排，2026-10-22 定稿）：快照 `heat` 节 = 真数据 / 无节 = 未接入 / 无快照 = 示例数据 |
+| `heatHtml()` / `paintHeatReal()` | 活跃热力图「近 60 天」日期视图（周一~周五 5 排 × 工作日列，2026-10-22 二次定稿）：快照 `repos[].daily` = 真数据 / 无节 = 未接入 / 无快照 = 示例数据 |
 | `actTick()` / `renderAct()` | 最近动态面板（决策/日报/问题逐条打字滚动） |
 | 外壳 IIFE（文件末尾） | `attachShadow` → 克隆 `tpl-ops` → 调用 `mountOps`。**只挂载这一款看板，不要往里加切换逻辑** |
 
