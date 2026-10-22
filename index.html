@@ -399,7 +399,6 @@ body{background:var(--page);overflow:hidden}
   <section class="panels">
     <!-- 活跃 / 任务 / 问题 / 测试 四视图（2026-10-22）：热力图面板位扩为 4 视图，下划线分节切换 -->
     <article class="panel" id="views4">
-      <div class="ph"><h2>ACTIVITY<i>活跃 · 任务 · 问题 · 测试</i></h2><span>示例数据</span></div>
       <div class="sbar su" role="tablist" aria-label="活跃与质量视图切换">
         <button class="sw on" type="button" data-t="0">热力图<i>HEAT</i></button>
         <button class="sw" type="button" data-t="1">任务<i>TASK</i></button>
@@ -409,7 +408,6 @@ body{background:var(--page);overflow:hidden}
       <div class="pb">
         <div class="view on" data-v="0">
           <div class="hm" id="hm"></div>
-          <div class="vfoot">git 提交次数 × 近 9 周 · 周一~周五固定 5 排 · <b>缺数据如实显示</b></div>
         </div>
         <div class="view" data-v="1">
           <div class="task-name">feat/heat-pairing · 活动热力图行成对</div>
@@ -668,19 +666,10 @@ function heatHtml(byDate, note){   // byDate: {"YYYY-MM-DD": 提交数} 或 'na'
     `<div class="hrow"><div class="hname">${name}</div><div class="hcells">` +
     weeks.map(wk => cell(byDate === 'na' ? 'na' : HEAT_LV(byDate[heatDayIso(wk, w)] || 0))).join('') +
     `</div></div>`).join('');
-  let busy = note;
-  if (!busy){
-    let bd = '', mx = 0;
-    weeks.forEach(wk => HEAT_DOW.forEach((_, w) => {
-      const iso = heatDayIso(wk, w), v = byDate[iso] || 0;
-      if (v > mx) { mx = v; bd = iso.slice(5); }
-    }));
-    busy = bd ? `最忙: ${bd} · ${mx} 次提交` : '最忙: —';
-  }
   const ticks = weeks.map((wk, i) => `<span>${i % 4 === 0 || i === weeks.length - 1 ? wk.label : ''}</span>`).join('');
   return `<div class="hm-head"><b>近 9 周</b><span>${weeks[0].label} ~ ${weeks[weeks.length - 1].label}</span></div>` + rows
     + `<div class="hm-x"><div></div><div class="hlab">${ticks}</div></div>`
-    + `<div class="hleg"><span>${busy}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
+    + `<div class="hleg"><span>${note || ''}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
 }
 function renderHeat(){   // 示例数据兜底（无快照时才画，接入数据后不再出现，2026-10-22 用户定）
   const el = $('#hm'); if (!el) return;
