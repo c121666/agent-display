@@ -216,10 +216,11 @@ body{background:var(--page);overflow:hidden}
 .hm{display:flex;flex-direction:column;gap:3px;height:100%;font-size:8px}
 .hm-head{display:flex;justify-content:space-between;align-items:center;color:var(--ink2);letter-spacing:.08em}
 .hm-head b{font-weight:700;color:var(--ink);font-family:var(--cjk)}
-.hrow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px}
-.hname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center;font-family:var(--cjk)}
+.hrow{display:flex;justify-content:center;gap:6px}
+.hname{width:28px;flex:none;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center;font-family:var(--cjk)}
 .hcells{display:flex;gap:3px;min-width:0}
-.hm-x{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;color:var(--mute);font-size:7px}
+.hm-x{display:flex;justify-content:center;gap:6px;color:var(--mute);font-size:7px}
+.hm-x>div:first-child{width:28px;flex:none}
 .hm-x .hlab{display:flex;gap:3px}
 .hm-x .hlab span{width:12px;flex:none;white-space:nowrap;font-size:6.5px}
 .hm .c{width:12px;height:12px;box-sizing:border-box;border:1px solid var(--hair2);flex:none}
