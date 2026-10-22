@@ -57,12 +57,13 @@ npx serve .
 「任务 / token 监控」面板可消费本机采集的 token 用量快照，口径见 [`docs/specs/调度中心-数据同步设计.md`](docs/specs/调度中心-数据同步设计.md)（已拍板：单采集路线 = 会话日志解析，TPS = 每秒输出 token 总和，成本美元，不单列推理 token）。三步：
 
 ```bash
-# 1. 勾选项目（隐私约定：只解析你勾选的项目，其他项目只读会话文件头的 cwd 用于列候选，不读内容）
-py tools/collect_tokens.py --pick           # 交互式勾选，清单存 data/_projects.local.json（不入库）
+# 1. 列出候选项目（只读会话文件头的 cwd 用于列候选，不读内容）
+py tools/collect_tokens.py --scan
 
-# 2. 采集勾选的项目 → rollup → 原子写 data/<project-id>.json（每项目一份）
-py tools/collect_tokens.py
-py tools/collect_tokens.py --project-dir .  # 一次性只采这一个项目（不影响勾选清单）
+# 2. 勾选并采集（隐私约定：只解析你勾选项目的会话）
+#    方式 A：看板右上「设置」浮层里勾选项目 → 点「复制采集命令」→ 粘到终端跑
+#    方式 B：py tools/collect_tokens.py --project-dir <项目路径> [--project-dir <路径> ...]
+py tools/collect_tokens.py                  # 之后默认只采勾选清单里的项目
 
 # 3. 校验（失败不要推送，契约见 docs/specs/数字汇报-数据契约.md）
 py tools/validate_data.py data/*.json
@@ -72,6 +73,8 @@ python3 -m http.server 8000
 ```
 
 面板三态：无快照 = 模拟示例数据；快照有 `tokens` 节 = 同步真数据（脚注显示项目名 + lastSync）；快照无 `tokens` 节 = 显示「未接入」。字段缺失一律「—」灰显，**不补 0**（当日无记录 = 真实 0，比率类分母为 0 置 null）。点「设置」选项目，选择记在本机 localStorage。`data/` 为真实用量数据，默认不入库（见 `.gitignore`）。
+
+「设置」浮层：**勾选 = 统计范围**，点「复制采集命令」粘到终端跑一次（纯前端页面不能直接执行本机命令）；**点项目名 = 大屏显示该项目**。勾选清单存 `data/_projects.local.json`。
 
 ### 接入真实数据的改造方向
 

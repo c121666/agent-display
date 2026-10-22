@@ -185,6 +185,10 @@ body{background:var(--page);overflow:hidden}
 .pp-item span{display:block;font-size:7.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pp-item.on span{color:var(--chip-fg);opacity:.75}
 .pp-f{margin-top:6px;font-size:7.5px;color:var(--mute);font-family:var(--cjk)}
+.pp-item label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.pp-item input[type=checkbox]{margin:0;accent-color:var(--ink)}
+.pp-acts{margin-top:6px;display:flex;justify-content:flex-end}
+.pp-acts .btn{font-size:8px;padding:3px 8px}
 
 /* 舞台 */
 .stage{position:relative;min-height:0;overflow:hidden;background:var(--bg)}
@@ -364,7 +368,8 @@ body{background:var(--page);overflow:hidden}
   <div class="proj-pop" id="projPop" hidden>
     <div class="pp-h">PROJ · 项目选择</div>
     <div class="pp-list"></div>
-    <div class="pp-f">按项目统计 token 用量 · 选择记在本机</div>
+    <div class="pp-acts"><button class="btn" id="projCopy" type="button">复制采集命令</button></div>
+    <div class="pp-f">勾选 = 统计范围；点项目名 = 大屏显示该项目。页面不能直接执行本机命令，勾选后点「复制采集命令」粘到终端跑一次</div>
   </div>
     <canvas id="sc" aria-label="调度主视图：左侧连线汇聚到三个工作流节点，中间旋转环带滚动执行记录，右侧旋转谱线表示输出流"></canvas>
     <div class="hud"><span>STABILITY CHECK · 稳定性</span><span>CFL = |u|·Δt/Δx = <b id="cfl">0.00</b> <span id="cflst">OK</span></span></div>
@@ -1127,12 +1132,12 @@ setInterval(() => {
    三态（口径见 docs/specs/调度中心-数据同步设计.md 第 5 节）：
    无快照（含 file://）= 演示，保留模拟数据；快照有 tokens 节 = 同步真数据；
    快照无 tokens 节 = 未接入，数值全 '—'。字段 null = 未采集，同样 '—'。
-   多项目各一份快照（data/<id>.json），「设置」按钮选项目后按项目统计，选择记在 localStorage。 */
-const projPop = $('#projPop'), projList = projPop.querySelector('.pp-list');
+   多项目各一份快照（data/<id>.json）；「设置」浮层里勾选统计范围（「复制采集命令」粘终端跑一次），点项目名切换大屏显示。 */
+const projPop = $('#projPop'), projList = projPop.querySelector('.pp-list'), projCopy = $('#projCopy');
 const monFoot = mon.querySelector('.pf'), monTpsFoot = [...mon.querySelectorAll('.tps-foot span')];
 const monReqN = [...mon.querySelectorAll('.view[data-v="1"] .tile .n')], monReqRate = [...mon.querySelectorAll('.view[data-v="1"] .kv b')];
 const monReqBar = mon.querySelector('.view[data-v="1"] .bar i'), monUse = [...mon.querySelectorAll('.view[data-v="2"] .use-row b')];
-let tokMode = 'demo', tokSnaps = [];
+let tokMode = 'demo', tokSnaps = [], tokCands = [];
 function nv(el, text, na){ el.textContent = text; el.classList.toggle('na', !!na); }
 function kfmt(n){ return n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
 function paintTokens(tk){
@@ -1162,17 +1167,30 @@ function curSnap(){
   try { id = localStorage.getItem('ops-proj'); } catch (e) { /* 隐私模式等拿不到 storage */ }
   return tokSnaps.find(s => (s.project || {}).id === id) || [...tokSnaps].sort(bySync)[0];
 }
+function loadCollect(){
+  try { return JSON.parse(localStorage.getItem('ops-collect') || 'null'); } catch (e) { return null; }
+}
 function renderProjList(){
-  if (!tokSnaps.length) {
-    projList.innerHTML = '<div class="pp-item na">暂无 tokens 快照 · 先跑 py tools/collect_tokens.py --pick</div>';
+  const byPath = {};
+  tokSnaps.forEach(s => { const p = s.project || {}; if (p.path) byPath[p.path] = s; });
+  const rows = tokCands.map(c => ({ name: c.name, path: c.path, snap: byPath[c.path] || null }));
+  tokSnaps.forEach(s => {   // 有快照但候选清单里没有的（换机器残留等）也列出
+    const p = s.project || {};
+    if (p.path && !tokCands.some(c => c.path === p.path)) rows.push({ name: p.name, path: p.path, snap: s });
+  });
+  if (!rows.length) {
+    projList.innerHTML = '<div class="pp-item na">暂无项目 · 先在终端跑 py tools/collect_tokens.py --scan</div>';
     return;
   }
-  const curId = (curSnap().project || {}).id;
-  projList.innerHTML = [...tokSnaps].sort(bySync).map(s => {
-    const p = s.project || {}, t = s.tokens || {}, rq = t.requests || {};
-    return `<div class="pp-item${p.id === curId ? ' on' : ''}" data-id="${p.id || ''}">`
-      + `<b>${p.name || p.id || '?'}</b><span>${p.path || ''}</span>`
-      + `<span>今日请求 ${rq.total == null ? '—' : rq.total} · lastSync ${t.lastSync || '—'}</span></div>`;
+  const checked = loadCollect();
+  const cur = curSnap(), curId = cur && cur.project ? cur.project.id : null;
+  projList.innerHTML = rows.map(r => {
+    const p = (r.snap || {}).project || {}, t = (r.snap || {}).tokens || {}, rq = t.requests || {};
+    const on = checked ? checked.includes(r.path) : !!r.snap;
+    const status = t.lastSync ? '今日请求 ' + (rq.total == null ? '—' : rq.total) + ' · ' + t.lastSync : '未采集 · 勾选后复制采集命令';
+    return `<div class="pp-item${p.id && p.id === curId ? ' on' : ''}" data-id="${p.id || ''}">`
+      + `<label><input type="checkbox" data-path="${r.path}"${on ? ' checked' : ''}><b>${r.name || p.name || '?'}</b></label>`
+      + `<span>${r.path || ''}</span><span>${status}</span></div>`;
   }).join('');
 }
 function applySel(){
@@ -1184,11 +1202,26 @@ function applySel(){
   renderProjList();
 }
 projList.addEventListener('click', e => {
+  if (e.target.closest('label')) return;   // 点勾选框只改统计范围，不切换大屏项目
   const it = e.target.closest('.pp-item[data-id]');
-  if (!it) return;
+  if (!it || !it.dataset.id) return;
   try { localStorage.setItem('ops-proj', it.dataset.id); } catch (err) { /* 拿不到 storage 就只本次生效 */ }
   applySel();
   projPop.hidden = true;
+});
+projList.addEventListener('change', e => {
+  if (e.target.type !== 'checkbox') return;
+  const paths = [...projList.querySelectorAll('input[type=checkbox]:checked')].map(b => b.dataset.path);
+  try { localStorage.setItem('ops-collect', JSON.stringify(paths)); } catch (err) { /* 拿不到 storage 就只本次生效 */ }
+});
+projCopy.addEventListener('click', () => {
+  const paths = [...projList.querySelectorAll('input[type=checkbox]:checked')].map(b => b.dataset.path);
+  const flash = txt => { projCopy.textContent = txt; setTimeout(() => { projCopy.textContent = '复制采集命令'; }, 2000); };
+  if (!paths.length) { flash('先勾选项目'); return; }
+  const cmd = 'py tools/collect_tokens.py' + paths.map(p => ` --project-dir "${p}"`).join('');
+  const done = () => flash('已复制 · 粘到终端跑一次');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(cmd).then(done).catch(() => window.prompt('手动复制这条命令', cmd));
+  else window.prompt('手动复制这条命令', cmd);
 });
 projBtn.addEventListener('click', () => { projPop.hidden = !projPop.hidden; renderProjList(); });
 document.addEventListener('pointerdown', e => {
@@ -1203,6 +1236,7 @@ async function syncTokens(){
       .map(m => m[1].split('/').pop()).filter(n => n && !n.startsWith('_'));
     snaps = (await Promise.all(names.map(n => fetch('data/' + n)
       .then(r => r.ok ? r.json() : null).catch(() => null)))).filter(Boolean);
+    tokCands = await fetch('data/_candidates.json').then(r => r.ok ? r.json() : []).catch(() => []);
   } catch (e) { return; }   // file:// 或无 data/：保持演示（模拟数据）
   tokSnaps = snaps.filter(s => s.tokens);
   if (tokSnaps.length) { applySel(); }
@@ -1211,7 +1245,7 @@ async function syncTokens(){
     paintTokens({});
     monFoot.textContent = '未接入 · 快照中无 tokens 节 · 缺数据如实显示';
     renderProjList();
-  }
+  } else { renderProjList(); }
 }
 syncTokens();
 setInterval(() => { if (!paused && !host.hidden) syncTokens(); }, 60000);
