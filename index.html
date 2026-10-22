@@ -597,7 +597,7 @@ const matched = () => wfs.filter(w => w.q >= 0.8).length;
 let logN = 38;
 const feed = [];
 const VERB = {read: 'feat', build: 'fix', check: 'test', review: 'opt'};
-function log(verb, t){ feed.push({n: logN++, verb, text: `${VERB[verb]} ${t.name}`}); if (feed.length > 30) feed.shift(); }
+function log(verb, t){ feed.push({n: logN++, verb, text: `${VERB[verb]} ${t.name}`, ts: Date.now()}); if (feed.length > 30) feed.shift(); }
 order.slice(8, 20).forEach((i, k) => log(['read', 'build', 'check', 'review'][k % 4], tasks[i]));
 
 function step(){
@@ -636,13 +636,16 @@ function renderStats(){
 }
 function renderFeed(){
   const n = Math.max(4, Math.floor(feedEl.clientHeight / 13.5));
-  feedEl.innerHTML = feed.slice(-n).map(e => `<li><span class="n">${String(e.n).padStart(3, '0')}</span><span class="vb">${e.verb}</span><span class="d">${e.text}</span></li>`).join('');
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const today = feed.filter(e => e.ts >= dayStart.getTime());   // 只显示当天（2026-10-22 用户定）
+  feedEl.innerHTML = today.slice(-n).reverse().map(e => `<li><span class="n">${String(e.n).padStart(3, '0')}</span><span class="vb">${e.verb}</span><span class="d">${e.text}</span></li>`).join('');   // 倒序：最新在上
 }
 /* ===== 活跃热力图（2026-10-22 定稿：「近 9 周」周视图）：行 = 周一~周五（固定 5 排，周六周日不显示） =====
    列 = 近 9 周（含本周，约两个月，左旧 → 右新），每格 = 该周该星期几的提交数；色阶 = 分档 1/3/6/10。
    数据源：快照 repos[].daily 按日期取提交数；无提交 = 真实 0（浅空格），未采集 = 虚线格。 */
 const HEAT_DOW = ['周一', '周二', '周三', '周四', '周五'];
 const HEAT_LV = n => n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n >= 1 ? 1 : 0;
+let heatKey = null;   // 已绘制的数据指纹：数据没变不重绘（防每 60 秒同步闪烁）
 function heatWeeks(n){   // 近 n 周的周一日期（含本周），旧 → 新
   const out = [];
   const now = new Date();
@@ -679,8 +682,9 @@ function heatHtml(byDate, note){   // byDate: {"YYYY-MM-DD": 提交数} 或 'na'
     + `<div class="hm-x"><div></div><div class="hlab">${ticks}</div></div>`
     + `<div class="hleg"><span>${busy}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
 }
-function renderHeat(){   // 示例数据：工作日多、周五轻，形态贴近真实作息
+function renderHeat(){   // 示例数据兜底（无快照时才画，接入数据后不再出现，2026-10-22 用户定）
   const el = $('#hm'); if (!el) return;
+  if (heatKey === 'demo') return; heatKey = 'demo';
   const byDate = {};
   heatWeeks(9).forEach((wk, wi) => HEAT_DOW.forEach((_, w) => {
     const iso = heatDayIso(wk, w);
@@ -694,12 +698,15 @@ function renderHeat(){   // 示例数据：工作日多、周五轻，形态贴�
 /* 热力图数据源切换：快照有 repos 节 = 真数据（git 按日提交数）；无 repos 节 = 未接入；无快照 = 示例数据。 */
 function paintHeatReal(repos){
   const el = $('#hm'); if (!el) return;
+  const key = JSON.stringify(repos);
+  if (key === heatKey) return; heatKey = key;
   const byDate = {};
   repos.forEach(r => (r.daily || []).forEach(d => { byDate[d.date] = (byDate[d.date] || 0) + d.commits; }));
   el.innerHTML = heatHtml(byDate, null);
 }
 function paintHeatNa(){
   const el = $('#hm'); if (!el) return;
+  if (heatKey === 'na') return; heatKey = 'na';
   el.innerHTML = heatHtml('na', '未接入 · 快照中无 repos 节（git 数据未采集）');
 }
 function renderAll(){ renderStats(); renderFeed(); if (hoverHub >= 0) showTip(); }
@@ -1290,7 +1297,7 @@ async function syncTokens(){
       .map(m => m[1].split('/').pop()).filter(n => n && !n.startsWith('_'));
     snaps = (await Promise.all(names.map(n => fetch('data/' + n)
       .then(r => r.ok ? r.json() : null).catch(() => null)))).filter(Boolean);
-  } catch (e) { return; }   // file:// 或无 data/：保持演示（模拟数据）
+  } catch (e) { renderHeat(); return; }   // file:// 或无 data/：演示态，热力图示例数据兑底
   tokSnaps = snaps.filter(s => s.tokens);
   if (tokSnaps.length) { applySel(); }
   else if (snaps.length) {
@@ -1299,7 +1306,7 @@ async function syncTokens(){
     paintHeatNa();
     monFoot.textContent = '未接入 · 快照中无 tokens 节 · 缺数据如实显示';
     renderProjList();
-  } else { renderProjList(); }
+  } else { tokMode = 'demo'; renderProjList(); renderHeat(); }
 }
 syncTokens();
 setInterval(() => { if (!paused && !host.hidden) syncTokens(); }, 60000);
@@ -1345,7 +1352,7 @@ ro.observe(stage);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { stageDirty = true; });
 
 readTheme();
-renderAll(); renderHeat(); renderAct();
+renderAll(); renderAct();
 clockTick(); cycleHi();
 setInterval(() => { if (!paused && !host.hidden) step(); }, 900);
 setInterval(() => { if (!paused && !host.hidden) hudTick(); }, 300);
