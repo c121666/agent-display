@@ -57,14 +57,17 @@ npx serve .
 「任务 / token 监控」面板可消费本机采集的 token 用量快照，口径见 [`docs/specs/调度中心-数据同步设计.md`](docs/specs/调度中心-数据同步设计.md)（已拍板：单采集路线 = 会话日志解析，TPS = 每秒输出 token 总和，成本美元，不单列推理 token）。三步：
 
 ```bash
-# 1. 采集：扫本机 agent 会话日志（pi / Claude Code / Codex）→ rollup → 原子写 data/<project-id>.json
-py tools/collect_tokens.py --all            # 全部项目，每项目一份快照（推荐，看板「设置」里可选项目）
-py tools/collect_tokens.py --project-dir .  # 只要当前项目
+# 1. 勾选项目（隐私约定：只解析你勾选的项目，其他项目只读会话文件头的 cwd 用于列候选，不读内容）
+py tools/collect_tokens.py --pick           # 交互式勾选，清单存 data/_projects.local.json（不入库）
 
-# 2. 校验（失败不要推送，契约见 docs/specs/数字汇报-数据契约.md）
+# 2. 采集勾选的项目 → rollup → 原子写 data/<project-id>.json（每项目一份）
+py tools/collect_tokens.py
+py tools/collect_tokens.py --project-dir .  # 一次性只采这一个项目（不影响勾选清单）
+
+# 3. 校验（失败不要推送，契约见 docs/specs/数字汇报-数据契约.md）
 py tools/validate_data.py data/*.json
 
-# 3. 预览（file:// 双击读不到 data/，面板保持模拟数据）
+# 4. 预览（file:// 双击读不到 data/，面板保持模拟数据）
 python3 -m http.server 8000
 ```
 

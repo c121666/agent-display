@@ -1164,7 +1164,7 @@ function curSnap(){
 }
 function renderProjList(){
   if (!tokSnaps.length) {
-    projList.innerHTML = '<div class="pp-item na">暂无 tokens 快照 · 先跑 py tools/collect_tokens.py --all</div>';
+    projList.innerHTML = '<div class="pp-item na">暂无 tokens 快照 · 先跑 py tools/collect_tokens.py --pick</div>';
     return;
   }
   const curId = (curSnap().project || {}).id;

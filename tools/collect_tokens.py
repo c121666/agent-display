@@ -10,7 +10,12 @@
   claude  ~/.claude/projects/**/*.jsonl
   codex   ~/.codex/sessions/**/*.jsonl + ~/.codex/archived_sessions/*.jsonl
 
-用法：py tools/collect_tokens.py [--project-dir DIR] [--out DIR] [--id ID] [--name NAME]
+用法：
+  py tools/collect_tokens.py --pick           # 交互式勾选要统计的项目（存 data/_projects.local.json）
+  py tools/collect_tokens.py                  # 只采勾选的项目（未勾选时提示先 --pick）
+  py tools/collect_tokens.py --project-dir .  # 一次性只采这一个项目
+
+隐私约定：只解析用户勾选项目的会话内容；未勾选的项目只读会话文件头的 cwd（列候选用），不读内容。
 """
 import argparse
 import hashlib
@@ -163,14 +168,29 @@ SOURCES = [
 ]
 
 
-def collect(project_dir=None):
-    """扫所有日志源；project_dir 只留属于它的记录，None = 全部项目（记录带 cwd，供分组）。"""
+def discover():
+    """列候选项目：只读会话文件头的 cwd（不解析会话内容），返回 [(cwd, 会话文件数)]。"""
+    found = {}
+    for _name, _parser, roots in SOURCES:
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for f in root.rglob("*.jsonl"):
+                cwd = file_cwd(f)
+                if cwd:
+                    key = str(Path(cwd).resolve())
+                    found[key] = found.get(key, 0) + 1
+    return sorted(found.items())
+
+
+def collect(project_dirs):
+    """只解析 project_dirs 里项目的会话；其他项目只读会话头的 cwd 用于匹配，不读内容。"""
     records = []
     for _name, parser, roots in SOURCES:
         files = [p for root in roots if root.is_dir() for p in root.rglob("*.jsonl")]
         for f in files:
             cwd = file_cwd(f)
-            if not cwd or (project_dir and not same_dir(cwd, project_dir)):
+            if not cwd or not any(same_dir(cwd, d) for d in project_dirs):
                 continue
             try:
                 recs = list(parser(f))
@@ -288,29 +308,58 @@ def write_snap(out, now, cwd, recs, pid=None, name=None):
           f"{t['today']['input']}/{t['today']['output']} · lastSync {t['lastSync']}")
 
 
+def pick(out):
+    """交互式勾选要统计的项目，存 data/_projects.local.json（data/ 不入库，看板忽略 _ 前缀文件）。"""
+    cands = discover()
+    if not cands:
+        print("[warn] 没发现任何项目的会话", file=sys.stderr)
+        return []
+    print("候选项目（只读了会话头的 cwd，未读会话内容）：")
+    for i, (cwd, n) in enumerate(cands, 1):
+        print(f"  [{i}] {Path(cwd).name}  ({cwd})  {n} 个会话文件")
+    sel = input("输入要统计的项目编号，逗号分隔（如 1,3,5；回车 = 全不选）: ").strip()
+    nums = [int(x) for x in re.split(r"[,\s]+", sel) if x.strip().isdigit()]
+    chosen = sorted({cands[i - 1][0] for i in nums if 1 <= i <= len(cands)})
+    pf = out / "_projects.local.json"
+    pf.write_text(json.dumps({"projects": chosen}, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[ok] 已选 {len(chosen)} 个项目，清单存在 {pf}（本地文件，不入库）")
+    return chosen
+
+
 def main():
-    ap = argparse.ArgumentParser(description="采集会话日志并写 data/<id>.json 快照")
-    ap.add_argument("--project-dir", default=".", help="项目目录（只扫 cwd 属于它的会话）")
-    ap.add_argument("--all", action="store_true", help="扫全部项目，每项目一份快照（看板「设置」里可选项目）")
+    ap = argparse.ArgumentParser(description="采集用户勾选项目的会话日志并写 data/<id>.json 快照")
+    ap.add_argument("--pick", action="store_true", help="交互式勾选要统计的项目（之后默认只采这些）")
+    ap.add_argument("--project-dir", default=None, help="一次性只采这一个项目（不影响勾选清单）")
     ap.add_argument("--out", default="data", help="快照输出目录（默认 data/）")
-    ap.add_argument("--id", default=None, help="project.id / 文件名（默认取项目目录名；仅单项目模式）")
-    ap.add_argument("--name", default=None, help="project.name（默认取目录名；仅单项目模式）")
+    ap.add_argument("--id", default=None, help="project.id / 文件名（默认取项目目录名；仅 --project-dir 模式）")
+    ap.add_argument("--name", default=None, help="project.name（默认取目录名；仅 --project-dir 模式）")
     args = ap.parse_args()
 
     now = datetime.now().astimezone()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    if not args.all:
-        pdir = Path(args.project_dir).resolve()
-        write_snap(out, now, str(pdir), collect(pdir), args.id, args.name)
-        return
+    if args.pick:
+        dirs = pick(out)
+    elif args.project_dir:
+        dirs = [str(Path(args.project_dir).resolve())]
+    else:
+        pf = out / "_projects.local.json"
+        dirs = (json.loads(pf.read_text(encoding="utf-8")).get("projects") or []) if pf.exists() else []
+        if not dirs:
+            print("尚未勾选项目。先跑：py tools/collect_tokens.py --pick", file=sys.stderr)
+            return
 
     groups = {}
-    for r in collect(None):
+    for r in collect(dirs):
         groups.setdefault(r["cwd"], []).append(r)
-    if not groups:
-        print("[warn] 没扫到任何会话记录", file=sys.stderr)
+    if not groups and dirs:
+        print("[warn] 选中的项目没扫到会话记录", file=sys.stderr)
+
+    if args.project_dir:
+        write_snap(out, now, dirs[0], groups.get(dirs[0], []), args.id, args.name)
+        return
+
     ids = {}
     for cwd in groups:
         ids[cwd] = re.sub(r"[^a-z0-9]+", "-", Path(cwd).name.lower()).strip("-") or "project"

@@ -31,7 +31,7 @@ agent-display/
 ├── README.md           # 面向人的文档（功能、部署、配置、改造方向）
 ├── CHANGELOG.md        # 版本记录（Keep a Changelog 风格）
 ├── tools/
-│   ├── collect_tokens.py # 数据同步采集器：会话日志 → data/<id>.json 快照（token 统计）
+│   ├── collect_tokens.py # 数据同步采集器：会话日志 → data/<id>.json 快照（token 统计；只采用户 --pick 勾选的项目）
 │   └── validate_data.py  # 快照校验（数据契约 + tokens 节）
 ├── data/               # 同步快照输出目录（真实用量数据，不入库）
 ├── docs/
