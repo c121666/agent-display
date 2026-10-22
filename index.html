@@ -218,10 +218,11 @@ body{background:var(--page);overflow:hidden}
 .hm-head b{font-weight:700;color:var(--ink);font-family:var(--cjk)}
 .hrow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px}
 .hname{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;align-self:center;font-family:var(--cjk)}
-.hcells{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;min-width:0}
+.hcells{display:flex;gap:3px;min-width:0}
 .hm-x{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;color:var(--mute);font-size:7px}
-.hm-x .hlab{display:flex;justify-content:space-between}
-.hm .c{aspect-ratio:1;border:1px solid var(--hair2)}
+.hm-x .hlab{display:flex;gap:3px}
+.hm-x .hlab span{width:12px;flex:none;white-space:nowrap;font-size:6.5px}
+.hm .c{width:12px;height:12px;box-sizing:border-box;border:1px solid var(--hair2);flex:none}
 .hm .c.l1{background:color-mix(in srgb,var(--ink) 15%,transparent);border-color:transparent}
 .hm .c.l2{background:color-mix(in srgb,var(--ink) 36%,transparent);border-color:transparent}
 .hm .c.l3{background:color-mix(in srgb,var(--ink) 62%,transparent);border-color:transparent}
@@ -407,7 +408,7 @@ body{background:var(--page);overflow:hidden}
       <div class="pb">
         <div class="view on" data-v="0">
           <div class="hm" id="hm"></div>
-          <div class="vfoot">git 提交次数 × 近 60 天（工作日）· 周一~周五固定 5 排 · <b>缺数据如实显示</b></div>
+          <div class="vfoot">git 提交次数 × 近 9 周 · 周一~周五固定 5 排 · <b>缺数据如实显示</b></div>
         </div>
         <div class="view" data-v="1">
           <div class="task-name">feat/heat-pairing · 活动热力图行成对</div>
@@ -483,9 +484,9 @@ body{background:var(--page);overflow:hidden}
           <div class="use-block">
             <h4>当天消耗 · BY HOUR</h4>
             <div class="ubars">
-              <i style="height:10px"></i><i style="height:18px"></i><i style="height:26px"></i><i style="height:14px"></i><i style="height:22px"></i><i style="height:30px"></i><i style="height:16px"></i><i style="height:8px"></i>
+              <i style="height:10px"></i><i style="height:18px"></i><i style="height:26px"></i><i style="height:14px"></i><i style="height:22px"></i><i style="height:30px"></i><i style="height:16px"></i><i style="height:8px"></i><i style="height:12px"></i><i style="height:20px"></i>
             </div>
-            <div class="ulab"><span>08</span><span>09</span><span>10</span><span>11</span><span>14</span><span>15</span><span>16</span><span>17</span></div>
+            <div class="ulab"><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span></div>
             <div class="usum"><span>当天消耗合计</span><b>278k</b></div>
           </div>
           <div class="use-block">
@@ -641,52 +642,60 @@ function renderFeed(){
   const n = Math.max(4, Math.floor(feedEl.clientHeight / 13.5));
   feedEl.innerHTML = feed.slice(-n).map(e => `<li><span class="n">${String(e.n).padStart(3, '0')}</span><span class="vb">${e.verb}</span><span class="d">${e.text}</span></li>`).join('');
 }
-/* ===== 活动热力图（2026-10-22 改「近 60 天」日期视图）：行 = 周一~周五（固定 5 排，周六周日不显示） =====
-   列 = 近 60 天里的工作日（左旧 → 右新），每根日期列落在它所属星期的行上；色阶 = 当日提交数分档 1/3/6/10。
-   数据源：快照 repos[].daily 按日期合计提交数；无提交 = 真实 0（浅空格），未采集 = 虚线格。 */
+/* ===== 活跃热力图（2026-10-22 定稿：「近 9 周」周视图）：行 = 周一~周五（固定 5 排，周六周日不显示） =====
+   列 = 近 9 周（含本周，约两个月，左旧 → 右新），每格 = 该周该星期几的提交数；色阶 = 分档 1/3/6/10。
+   数据源：快照 repos[].daily 按日期取提交数；无提交 = 真实 0（浅空格），未采集 = 虚线格。 */
 const HEAT_DOW = ['周一', '周二', '周三', '周四', '周五'];
 const HEAT_LV = n => n >= 10 ? 4 : n >= 6 ? 3 : n >= 3 ? 2 : n >= 1 ? 1 : 0;
-function heatDates(){
+function heatWeeks(n){   // 近 n 周的周一日期（含本周），旧 → 新
   const out = [];
-  for (let i = 59; i >= 0; i--){
-    const d = new Date(Date.now() - i * 864e5);
-    const w = (d.getDay() + 6) % 7;   // 周一 = 0
-    if (w > 4) continue;              // 周六周日去掉
+  const now = new Date();
+  const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+  for (let i = n - 1; i >= 0; i--){
+    const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() - i * 7);
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    out.push({ iso, w, label: `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')}` });
+    out.push({ d, iso, label: `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')}` });
   }
   return out;
 }
+function heatDayIso(wk, w){
+  const d = new Date(wk.d.getFullYear(), wk.d.getMonth(), wk.d.getDate() + w);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function heatHtml(byDate, note){   // byDate: {"YYYY-MM-DD": 提交数} 或 'na'
-  const days = heatDates(), n = days.length;
+  const weeks = heatWeeks(9);
   const cell = x => `<span class="c${x === 'na' ? ' na' : x ? ' l' + x : ''}"></span>`;
   const rows = HEAT_DOW.map((name, w) =>
-    `<div class="hrow"><div class="hname">${name}</div><div class="hcells" style="grid-template-columns:repeat(${n},minmax(0,1fr))">` +
-    days.map(d => cell(d.w === w ? (byDate === 'na' ? 'na' : HEAT_LV(byDate[d.iso] || 0)) : '')).join('') +
+    `<div class="hrow"><div class="hname">${name}</div><div class="hcells">` +
+    weeks.map(wk => cell(byDate === 'na' ? 'na' : HEAT_LV(byDate[heatDayIso(wk, w)] || 0))).join('') +
     `</div></div>`).join('');
   let busy = note;
   if (!busy){
-    let bd = null, mx = 0;
-    days.forEach(d => { const v = byDate[d.iso] || 0; if (v > mx) { mx = v; bd = d; } });
-    busy = bd ? `最忙: ${bd.label} · ${mx} 次提交` : '最忙: —';
+    let bd = '', mx = 0;
+    weeks.forEach(wk => HEAT_DOW.forEach((_, w) => {
+      const iso = heatDayIso(wk, w), v = byDate[iso] || 0;
+      if (v > mx) { mx = v; bd = iso.slice(5); }
+    }));
+    busy = bd ? `最忙: ${bd} · ${mx} 次提交` : '最忙: —';
   }
-  const ticks = [days[0], days[Math.floor(n / 3)], days[Math.floor(n * 2 / 3)], days[n - 1]].map(d => `<span>${d.label}</span>`).join('');
-  return `<div class="hm-head"><b>近 60 天</b><span>${days[0].label} ~ ${days[n - 1].label}</span></div>` + rows
+  const ticks = weeks.map((wk, i) => `<span>${i % 4 === 0 || i === weeks.length - 1 ? wk.label : ''}</span>`).join('');
+  return `<div class="hm-head"><b>近 9 周</b><span>${weeks[0].label} ~ ${weeks[weeks.length - 1].label}</span></div>` + rows
     + `<div class="hm-x"><div></div><div class="hlab">${ticks}</div></div>`
     + `<div class="hleg"><span>${busy}</span><span class="hcnt">少 <span class="c"></span><span class="c l1"></span><span class="c l2"></span><span class="c l3"></span><span class="c l4"></span> 多</span></div>`;
 }
 function renderHeat(){   // 示例数据：工作日多、周五轻，形态贴近真实作息
   const el = $('#hm'); if (!el) return;
   const byDate = {};
-  heatDates().forEach((d, i) => {
-    const x = Math.abs(Math.sin((i + 1) * 37.7 + d.w * 12.9)) % 1;
-    const base = d.w === 4 ? 3 : 9;
-    byDate[d.iso] = x > .78 ? Math.round(base * 1.5) : x > .5 ? base : x > .3 ? Math.round(base * 0.4) : 0;
-  });
+  heatWeeks(9).forEach((wk, wi) => HEAT_DOW.forEach((_, w) => {
+    const iso = heatDayIso(wk, w);
+    const x = Math.abs(Math.sin((wi + 1) * 37.7 + w * 12.9)) % 1;
+    const base = w === 4 ? 3 : 9;
+    byDate[iso] = x > .78 ? Math.round(base * 1.5) : x > .5 ? base : x > .3 ? Math.round(base * 0.4) : 0;
+  }));
   el.innerHTML = heatHtml(byDate, '示例数据');
 }
 
-/* 热力图数据源切换：快照有 repos 节 = 真数据（git 按日提交数合计）；无 repos 节 = 未接入；无快照 = 示例数据。 */
+/* 热力图数据源切换：快照有 repos 节 = 真数据（git 按日提交数）；无 repos 节 = 未接入；无快照 = 示例数据。 */
 function paintHeatReal(repos){
   const el = $('#hm'); if (!el) return;
   const byDate = {};
@@ -697,7 +706,6 @@ function paintHeatNa(){
   const el = $('#hm'); if (!el) return;
   el.innerHTML = heatHtml('na', '未接入 · 快照中无 repos 节（git 数据未采集）');
 }
-
 function renderAll(){ renderStats(); renderFeed(); if (hoverHub >= 0) showTip(); }
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1190,8 +1198,8 @@ function paintTokens(tk){
   nv(monReqRate[0], req.cacheHitRate == null ? '—' : Math.round(req.cacheHitRate * 100) + '%', req.cacheHitRate == null);
   nv(monReqRate[1], req.successRateToday == null ? '—' : (req.successRateToday * 100).toFixed(1) + '%', req.successRateToday == null);
   monReqBar.style.width = req.cacheHitRate == null ? '0' : Math.round(req.cacheHitRate * 100) + '%';
-  // 当天消耗柱状图：8 根工作时段柱（08/09/10/11/14/15/16/17 点，12-14 午休不计）；byHour = 当天 24 小时消耗（输入+输出）
-  const HOURS = [8, 9, 10, 11, 14, 15, 16, 17];
+  // 当天消耗柱状图：10 根柱 = 08–17 点（8:00-18:00，午休时段照常显示）；byHour = 当天 24 小时消耗（输入+输出）
+  const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
   const bh = tod.byHour || [];
   const vals = HOURS.map(h => bh[h] == null ? null : bh[h]);
   const mx = Math.max(1, ...vals.filter(v => v != null));
