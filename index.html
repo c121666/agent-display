@@ -490,11 +490,6 @@ body{background:var(--page);overflow:hidden}
             <div class="ulab"><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span></div>
             <div class="usum"><span>当天消耗合计</span><b>278k</b></div>
           </div>
-          <div class="use-block">
-            <h4>当天明细 · TODAY</h4>
-            <div class="use-row"><span>输入 / 输出</span><b>186k / 92k</b></div>
-            <div class="use-row"><span>合计 · 缓存命中</span><b>278k · 63%</b></div>
-          </div>
         </div>
       </div>
       <div class="pf">点击标签切换 · 无操作每 10 秒自动轮换</div>
@@ -1182,7 +1177,7 @@ const projPop = $('#projPop'), projList = projPop.querySelector('.pp-list'), pro
 const projPath = $('#projPath'), projAdd = $('#projAdd');
 const monFoot = mon.querySelector('.pf'), monTpsFoot = [...mon.querySelectorAll('.tps-foot span')];
 const monReqN = [...mon.querySelectorAll('.view[data-v="1"] .tile .n')], monReqRate = [...mon.querySelectorAll('.view[data-v="1"] .kv b')];
-const monReqBar = mon.querySelector('.view[data-v="1"] .bar i'), monUse = [...mon.querySelectorAll('.view[data-v="2"] .use-row b')];
+const monReqBar = mon.querySelector('.view[data-v="1"] .bar i');
 const monBars = [...mon.querySelectorAll('.view[data-v="2"] .ubars i')], monSum = mon.querySelector('.view[data-v="2"] .usum b');
 let tokMode = 'demo', tokSnaps = [], tokDirs = [];
 function nv(el, text, na){ el.textContent = text; el.classList.toggle('na', !!na); }
@@ -1210,13 +1205,9 @@ function paintTokens(tk){
     el.classList.toggle('zero', !v);
     el.title = (v == null ? '未采集' : HOURS[i] + ':00 · ' + kfmt(v));
   });
-  // 合计 = 输入 + 输出（输入已含缓存，采集器口径见 collect_tokens.py）
-  const inOut = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input) + ' / ' + kfmt(b.output);
+  // 当天消耗合计 = 输入 + 输出（输入已含缓存，采集器口径见 collect_tokens.py）
   const sum = b => (b.input == null || b.output == null) ? '—' : kfmt(b.input + b.output);
   nv(monSum, sum(tod), tod.input == null || tod.output == null);
-  nv(monUse[0], inOut(tod), tod.input == null || tod.output == null);
-  const hit = (tod.input && tod.cacheRead != null) ? ' · ' + Math.round(tod.cacheRead / tod.input * 100) + '%' : ' · —';
-  nv(monUse[1], sum(tod) + hit, tod.input == null || tod.output == null);
 }
 function bySync(a, b){ return String(b.tokens.lastSync || '').localeCompare(String(a.tokens.lastSync || '')); }
 function curSnap(){
